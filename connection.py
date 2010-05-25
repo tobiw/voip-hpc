@@ -20,20 +20,22 @@
 #
 ################################################################################
 
-import socket
+import socket, asyncore
+import time
 
-class connection:
+class connection(asyncore.dispatcher):
     """Connection class mockup (from connection.pyx in dionaea src)"""
 
     def __init__(self, proto=None):
+        asyncore.dispatcher.__init__(self)
+
         # Use TCP by default, and UDP if stated
         type = socket.SOCK_STREAM
-        if proto.lower() == 'udp':
+        if proto and proto.lower() == 'udp':
             type = socket.SOCK_DGRAM
 
         # Create non-blocking socket
-        self.__socket = socket.socket(socket.AF_INET, type)
-        self.__socket.setblocking(0)
+        self.create_socket(socket.AF_INET, type)
 
     def bind(self, addr, port, iface=u''):
         if isinstance(addr, unicode):
@@ -48,6 +50,7 @@ class connection:
 
         self.__socket.bind((addr_utf8, port))
 
+    """
     def connect(self, addr, port, iface=u''):
         if isinstance(addr, unicode):
             addr_utf8 = addr.encode(u'UTF-8')
@@ -59,7 +62,8 @@ class connection:
         else:
             raise ValueError(u'iface requires text input, got %s' % type(iface))
 
-        self.__socket.connect((addr_utf8, port))
+        self.connect(addr_utf8, port)
+    """
 
     def listen(self, size=20):
         self.__socket.listen(1)
@@ -77,3 +81,13 @@ class connection:
 
     def close(self):
         self.__socket.close()
+
+    def handle_read(self):
+        print(self.recv(1024))
+
+    def handle_write(self):
+        pass
+
+    def handle_connect(self):
+        pass
+
