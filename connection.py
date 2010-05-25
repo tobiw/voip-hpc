@@ -28,7 +28,7 @@ class connection:
     def __init__(self, proto=None):
         # Use TCP by default, and UDP if stated
         type = socket.SOCK_STREAM
-        if proto.lower() == 'udp':
+        if proto and proto.lower() == 'udp':
             type = socket.SOCK_DGRAM
 
         # Create non-blocking socket
