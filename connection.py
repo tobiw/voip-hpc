@@ -20,7 +20,6 @@
 #
 ################################################################################
 
-import pyev
 import socket
 
 class connection:
@@ -28,7 +27,7 @@ class connection:
 
     def __init__(self, proto=None):
         # Use TCP by default, and UDP if stated
-        type = sock.SOCK_STREAM
+        type = socket.SOCK_STREAM
         if proto.lower() == 'udp':
             type = socket.SOCK_DGRAM
 
