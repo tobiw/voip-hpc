@@ -31,9 +31,8 @@ class connection:
         if proto and proto.lower() == 'udp':
             type = socket.SOCK_DGRAM
 
-        # Create non-blocking socket
+        # Create socket (switch to non-blocking later)
         self.__socket = socket.socket(socket.AF_INET, type)
-        self.__socket.setblocking(0)
 
     def bind(self, addr, port, iface=u''):
         if isinstance(addr, unicode):
@@ -47,6 +46,7 @@ class connection:
             raise ValueError(u'iface requires text input, got %s' % type(iface))
 
         self.__socket.bind((addr_utf8, port))
+        self.__socket.setblocking(0)
 
     def connect(self, addr, port, iface=u''):
         if isinstance(addr, unicode):
@@ -60,6 +60,7 @@ class connection:
             raise ValueError(u'iface requires text input, got %s' % type(iface))
 
         self.__socket.connect((addr_utf8, port))
+        self.__socket.setblocking(0)
 
     def listen(self, size=20):
         self.__socket.listen(1)
@@ -77,3 +78,9 @@ class connection:
 
     def close(self):
         self.__socket.close()
+
+if __name__ == '__main__':
+    c = connection()
+    c.connect(u'localhost', 123455)
+    c.send(u'hello wooorld')
+    c.close()
