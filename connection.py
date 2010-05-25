@@ -50,21 +50,6 @@ class connection(asyncore.dispatcher):
 
         self.__socket.bind((addr_utf8, port))
 
-    """
-    def connect(self, addr, port, iface=u''):
-        if isinstance(addr, unicode):
-            addr_utf8 = addr.encode(u'UTF-8')
-        else:
-            raise ValueError(u'addr requires text input, got %s' % type(addr))
-
-        if isinstance(iface, unicode):
-            iface_utf8 = iface.encode(u'UTF-8')
-        else:
-            raise ValueError(u'iface requires text input, got %s' % type(iface))
-
-        self.connect(addr_utf8, port)
-    """
-
     def listen(self, size=20):
         self.__socket.listen(1)
         conn, addr = self.__socket.accept()
@@ -91,3 +76,7 @@ class connection(asyncore.dispatcher):
     def handle_connect(self):
         pass
 
+if __name__ == '__main__':
+    c = connection()
+    c.connect(('localhost', 123455))
+    asyncore.loop()
