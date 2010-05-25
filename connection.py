@@ -32,7 +32,9 @@ class connection:
         if proto.lower() == 'udp':
             type = socket.SOCK_DGRAM
 
-        self.socket = socket.socket(socket.AF_INET, type)
+        # Create non-blocking socket
+        self.__socket = socket.socket(socket.AF_INET, type)
+        self.__socket.setblocking(0)
 
     def bind(self, addr, port, iface=u''):
         if isinstance(addr, unicode):
@@ -45,7 +47,7 @@ class connection:
         else:
             raise ValueError(u'iface requires text input, got %s' % type(iface))
 
-        self.socket.bind((addr_utf8, port))
+        self.__socket.bind((addr_utf8, port))
 
     def connect(self, addr, port, iface=u''):
         if isinstance(addr, unicode):
@@ -58,12 +60,11 @@ class connection:
         else:
             raise ValueError(u'iface requires text input, got %s' % type(iface))
 
-        self.socket.connect((addr_utf8, port))
+        self.__socket.connect((addr_utf8, port))
 
     def listen(self, size=20):
-        self.socket.listen(1)
-        conn, addr = self.socket.accept()
-        # recv with pyev?
+        self.__socket.listen(1)
+        conn, addr = self.__socket.accept()
 
     def send(self, data):
         if isinstance(data, unicode):
@@ -73,7 +74,7 @@ class connection:
         else:
             raise ValueError(u'requires text/bytes input, got %s' % type(data))
 
-        self.socket.send(data)
+        self.__socket.send(data)
 
     def close(self):
-        self.socket.close()
+        self.__socket.close()
