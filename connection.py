@@ -27,6 +27,8 @@ class connection(asyncore.dispatcher):
     """Connection class mockup (from connection.pyx in dionaea src)"""
 
     def __init__(self, proto=None):
+        """Creates a new connection with TCP as its default transport
+        protocol"""
         asyncore.dispatcher.__init__(self)
 
         # Use TCP by default, and UDP if stated
@@ -38,22 +40,28 @@ class connection(asyncore.dispatcher):
         self.create_socket(socket.AF_INET, type)
 
     def handle_established(self):
+        """Callback for a newly established connection (client or server)"""
         print('Session established')
 
     def handle_read(self):
+        """Callback for incoming data (dionaea: handle_io_in)"""
         print(self.recv(1024))
 
     def handle_write(self):
+        """Callback for outgoing data (dionaea: handle_io_out)"""
         pass
 
     def handle_connect(self):
+        """Callback for successful connect (client)"""
         self.handle_established()
 
     def handle_close(self):
+        """Callback for a closed connection (continuesly called)"""
         self.close()
         print('Session closed')
 
     def handle_accept(self):
+        """Callback for successful accept (server)"""
         self.handle_established()
 
 if __name__ == '__main__':
