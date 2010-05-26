@@ -37,35 +37,8 @@ class connection(asyncore.dispatcher):
         # Create non-blocking socket
         self.create_socket(socket.AF_INET, type)
 
-    def bind(self, addr, port, iface=u''):
-        if isinstance(addr, unicode):
-            addr_utf8 = addr.encode(u'UTF-8')
-        else:
-            raise ValueError(u'addr requires text input, got %s' % type(addr))
-
-        if isinstance(iface, unicode):
-            iface_utf8 = iface.encode(u'UTF-8')
-        else:
-            raise ValueError(u'iface requires text input, got %s' % type(iface))
-
-        self.__socket.bind((addr_utf8, port))
-
-    def listen(self, size=20):
-        self.__socket.listen(1)
-        conn, addr = self.__socket.accept()
-
-    def send(self, data):
-        if isinstance(data, unicode):
-            data_bytes = data.encode(u'UTF-8')
-        elif isinstance(data, bytes):
-            data_bytes = data
-        else:
-            raise ValueError(u'requires text/bytes input, got %s' % type(data))
-
-        self.__socket.send(data)
-
-    def close(self):
-        self.__socket.close()
+    def handle_established(self):
+        print('Session established')
 
     def handle_read(self):
         print(self.recv(1024))
@@ -74,9 +47,16 @@ class connection(asyncore.dispatcher):
         pass
 
     def handle_connect(self):
-        pass
+        self.handle_established()
+
+    def handle_close(self):
+        self.close()
+        print('Session closed')
+
+    def handle_accept(self):
+        self.handle_established()
 
 if __name__ == '__main__':
     c = connection()
-    c.connect(('localhost', 123455))
+    c.connect(('localhost', 1111))
     asyncore.loop()
