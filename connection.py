@@ -26,18 +26,19 @@ import time
 class connection(asyncore.dispatcher):
     """Connection class mockup (from connection.pyx in dionaea src)"""
 
-    def __init__(self, proto=None):
+    def __init__(self, proto=None, sock=None):
         """Creates a new connection with TCP as its default transport
         protocol"""
-        asyncore.dispatcher.__init__(self)
+        asyncore.dispatcher.__init__(self, sock)
 
-        # Use TCP by default, and UDP if stated
-        type = socket.SOCK_STREAM
-        if proto and proto.lower() == 'udp':
-            type = socket.SOCK_DGRAM
+        if sock == None:
+            # Use TCP by default, and UDP if stated
+            type = socket.SOCK_STREAM
+            if proto and proto.lower() == 'udp':
+                type = socket.SOCK_DGRAM
 
-        # Create non-blocking socket
-        self.create_socket(socket.AF_INET, type)
+            # Create non-blocking socket
+            self.create_socket(socket.AF_INET, type)
 
     def handle_established(self):
         """Callback for a newly established connection (client or server)"""
@@ -45,7 +46,7 @@ class connection(asyncore.dispatcher):
 
     def handle_read(self):
         """Callback for incoming data (dionaea: handle_io_in)"""
-        print(self.recv(1024))
+        pass
 
     def handle_write(self):
         """Callback for outgoing data (dionaea: handle_io_out)"""
@@ -56,15 +57,11 @@ class connection(asyncore.dispatcher):
         self.handle_established()
 
     def handle_close(self):
-        """Callback for a closed connection (continuesly called)"""
+        """Callback for a closed connection"""
         self.close()
         print('Session closed')
 
     def handle_accept(self):
         """Callback for successful accept (server)"""
+        self.__conn, self.__address = self.accept()
         self.handle_established()
-
-if __name__ == '__main__':
-    c = connection()
-    c.connect(('localhost', 1111))
-    asyncore.loop()

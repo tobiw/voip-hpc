@@ -20,7 +20,55 @@
 #
 ################################################################################
 
-import connection
+from connection import connection
+
+TRYING                      = '100'
+RINGING                     = '180'
+CALL_FWD                    = '181'
+QUEUED                      = '182'
+PROGRESS                    = '183'
+OK                          = '200'
+ACCEPTED                    = '202'
+MULTI_CHOICES               = '300'
+MOVED_PERMANENTLY           = '301'
+MOVED_TEMPORARILY           = '302'
+USE_PROXY                   = '305'
+ALT_SERVICE                 = '380'
+BAD_REQUEST                 = '400'
+UNAUTHORIZED                = '401'
+PAYMENT_REQUIRED            = '402'
+FORBIDDEN                   = '403'
+NOT_FOUND                   = '404'
+NOT_ALLOWED                 = '405'
+NOT_ACCEPTABLE              = '406'
+PROXY_AUTH_REQUIRED         = '407'
+REQUEST_TIMEOUT             = '408'
+CONFLICT                    = '409'
+GONE                        = '410'
+LENGTH_REQUIRED             = '411'
+ENTITY_TOO_LARGE            = '413'
+URI_TOO_LARGE               = '414'
+UNSUPPORTED_MEDIA           = '415'
+BAD_EXTENSION               = '420'
+NOT_AVAILABLE               = '480'
+NO_TRANSACTION              = '481'
+LOOP                        = '482'
+TOO_MANY_HOPS               = '483'
+ADDRESS_INCOMPLETE          = '484'
+AMBIGUOUS                   = '485'
+BUSY_HERE                   = '486'
+CANCELLED                   = '487'
+NOT_ACCEPTABLE_HERE         = '488'
+INTERNAL_ERROR              = '500'
+NOT_IMPLEMENTED             = '501'
+BAD_GATEWAY                 = '502'
+UNAVAILABLE                 = '503'
+GATEWAY_TIMEOUT             = '504'
+SIP_VERSION_NOT_SUPPORTED   = '505'
+BUSY_EVERYWHERE             = '600'
+DECLINE                     = '603'
+DOES_NOT_EXIST              = '604'
+NOT_ACCEPTABLE_6xx          = '606'
 
 # SIP Responses from SIP Demystified by Gonzalo Camarillo
 RESPONSE = { 
@@ -84,17 +132,27 @@ RESPONSE = {
     NOT_ACCEPTABLE_6xx:         '606 Not acceptable'
 }
 
-class sip(connection):
-    NO_SESSION, INVITED, IN_SESSION, CANCELLED, BYED = range(5)
-
-    def __init__(self, proto='tcp'):
-        connection.__init__(proto)
-        self.__state = self.NO_SESSION
-        self.__lastResponse = 0
-
+class SipData(connection):
     def handle_read(self):
         """Callback for handling incoming SIP traffic"""
-        pass
+        data = self.recv(100)
+        print(data)
+        sep = data.find('\n')
+        header = data[:sep]
+        if header == 'INVITE':
+            self.sip_INVITE(header, data)
+        elif header == 'ACK':
+            self.sip_ACK(header, data)
+        elif header == 'OPTIONS':
+            self.sip_OPTIONS(header, data)
+        elif header == 'BYE':
+            self.sip_BYE(header, data)
+        elif header == 'CANCEL':
+            self.sip_CANCEL(header, data)
+        elif header == 'REGISTER':
+            self.sip_REGISTER(header, data)
+        else:
+            print("Error: unknown header")
 
     def handle_write(self):
         """Callback for handling outgoing SIP traffic"""
@@ -120,3 +178,16 @@ class sip(connection):
 
     def sip_REGISTER(self, header, body):
         print("SIP: Received REGISTER")
+
+class Sip(connection):
+    NO_SESSION, INVITED, IN_SESSION, CANCELLED, BYED = range(5)
+
+    def __init__(self, proto='tcp'):
+        connection.__init__(self)
+        self.__state = self.NO_SESSION
+        self.__lastResponse = 0
+
+    def handle_accept(self):
+        conn, addr = self.accept()
+        SipData(sock=conn)
+        self.handle_established()
