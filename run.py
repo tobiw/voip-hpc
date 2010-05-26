@@ -24,8 +24,8 @@ import sip
 import asyncore
 
 if __name__ == '__main__':
-    s = sip.Sip()
-    s.bind(('localhost', 1111))
-    s.listen(1)
+	s = sip.Sip()
+	s.bind(('localhost', 1111))
+	s.listen(1)
 
-    asyncore.loop()
+	asyncore.loop()
