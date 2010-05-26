@@ -92,21 +92,31 @@ class sip(connection):
         self.__state = self.NO_SESSION
         self.__lastResponse = 0
 
-    def sip_INVITE(self, header, body):
+    def handle_read(self):
+        """Callback for handling incoming SIP traffic"""
         pass
+
+    def handle_write(self):
+        """Callback for handling outgoing SIP traffic"""
+        pass
+
+    ###########################
+    # SIP message type handlers
+    ###########################
+    def sip_INVITE(self, header, body):
+        print("SIP: Received INVITE")
 
     def sip_ACK(self):
-        pass
+        print("SIP: Received ACK")
 
     def sip_OPTIONS(self, header, body):
-        pass
+        print("SIP: Received OPTIONS")
 
     def sip_BYE(self, header, body):
-        pass
+        print("SIP: Received BYE")
 
     def sip_CANCEL(self, header, body):
-        pass
+        print("SIP: Received CANCEL")
 
     def sip_REGISTER(self, header, body):
-        pass
-
+        print("SIP: Received REGISTER")
