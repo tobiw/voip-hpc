@@ -20,67 +20,51 @@
 #
 ################################################################################
 
-import socket
+import socket, asyncore
+import time
 
-class connection:
+class connection(asyncore.dispatcher):
     """Connection class mockup (from connection.pyx in dionaea src)"""
 
     def __init__(self, proto=None):
+        """Creates a new connection with TCP as its default transport
+        protocol"""
+        asyncore.dispatcher.__init__(self)
+
         # Use TCP by default, and UDP if stated
         type = socket.SOCK_STREAM
         if proto and proto.lower() == 'udp':
             type = socket.SOCK_DGRAM
 
-        # Create socket (switch to non-blocking later)
-        self.__socket = socket.socket(socket.AF_INET, type)
+        # Create non-blocking socket
+        self.create_socket(socket.AF_INET, type)
 
-    def bind(self, addr, port, iface=u''):
-        if isinstance(addr, unicode):
-            addr_utf8 = addr.encode(u'UTF-8')
-        else:
-            raise ValueError(u'addr requires text input, got %s' % type(addr))
+    def handle_established(self):
+        """Callback for a newly established connection (client or server)"""
+        print('Session established')
 
-        if isinstance(iface, unicode):
-            iface_utf8 = iface.encode(u'UTF-8')
-        else:
-            raise ValueError(u'iface requires text input, got %s' % type(iface))
+    def handle_read(self):
+        """Callback for incoming data (dionaea: handle_io_in)"""
+        print(self.recv(1024))
 
-        self.__socket.bind((addr_utf8, port))
-        self.__socket.setblocking(0)
+    def handle_write(self):
+        """Callback for outgoing data (dionaea: handle_io_out)"""
+        pass
 
-    def connect(self, addr, port, iface=u''):
-        if isinstance(addr, unicode):
-            addr_utf8 = addr.encode(u'UTF-8')
-        else:
-            raise ValueError(u'addr requires text input, got %s' % type(addr))
+    def handle_connect(self):
+        """Callback for successful connect (client)"""
+        self.handle_established()
 
-        if isinstance(iface, unicode):
-            iface_utf8 = iface.encode(u'UTF-8')
-        else:
-            raise ValueError(u'iface requires text input, got %s' % type(iface))
+    def handle_close(self):
+        """Callback for a closed connection (continuesly called)"""
+        self.close()
+        print('Session closed')
 
-        self.__socket.connect((addr_utf8, port))
-        self.__socket.setblocking(0)
-
-    def listen(self, size=20):
-        self.__socket.listen(1)
-        conn, addr = self.__socket.accept()
-
-    def send(self, data):
-        if isinstance(data, unicode):
-            data_bytes = data.encode(u'UTF-8')
-        elif isinstance(data, bytes):
-            data_bytes = data
-        else:
-            raise ValueError(u'requires text/bytes input, got %s' % type(data))
-
-        self.__socket.send(data)
-
-    def close(self):
-        self.__socket.close()
+    def handle_accept(self):
+        """Callback for successful accept (server)"""
+        self.handle_established()
 
 if __name__ == '__main__':
     c = connection()
-    c.connect(u'localhost', 123455)
-    c.send(u'hello wooorld')
-    c.close()
+    c.connect(('localhost', 1111))
+    asyncore.loop()
