@@ -132,13 +132,20 @@ RESPONSE = {
 	NOT_ACCEPTABLE_6xx:         '606 Not acceptable'
 }
 
-class SipData(connection):
+class Sip(connection):
+	"""Only UDP connections are supported at the moment"""
+	NO_SESSION, INVITED, IN_SESSION, CANCELLED, BYED = range(5)
+
+	def __init__(self):
+		connection.__init__(self, 'udp')
+		self.__state = self.NO_SESSION
+		self.__lastResponse = 0
+
 	def handle_read(self):
 		"""Callback for handling incoming SIP traffic"""
-		data = self.recv(100)
+		data = self.recvfrom(100)
 		print(data)
-		sep = data.find('\n')
-		header = data[:sep]
+		header = data[0]
 		if header == 'INVITE':
 			self.sip_INVITE(header, data)
 		elif header == 'ACK':
@@ -153,10 +160,6 @@ class SipData(connection):
 			self.sip_REGISTER(header, data)
 		else:
 			print("Error: unknown header")
-
-	def handle_write(self):
-		"""Callback for handling outgoing SIP traffic"""
-		pass
 
 	###########################
 	# SIP message type handlers
@@ -178,16 +181,3 @@ class SipData(connection):
 
 	def sip_REGISTER(self, header, body):
 		print("SIP: Received REGISTER")
-
-class Sip(connection):
-	NO_SESSION, INVITED, IN_SESSION, CANCELLED, BYED = range(5)
-
-	def __init__(self, proto='tcp'):
-		connection.__init__(self)
-		self.__state = self.NO_SESSION
-		self.__lastResponse = 0
-
-	def handle_accept(self):
-		conn, addr = self.accept()
-		SipData(sock=conn)
-		self.handle_established()
