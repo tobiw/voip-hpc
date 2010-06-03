@@ -175,7 +175,7 @@ def parseSipMessage(msg):
 
 	# Sanitize input: remove superfluous leading and trailing newlines and
 	# spaces
-	msg = msg.strip("\n ")
+	msg = msg.strip("\n\r\t ")
 
 	# Split lines into a list, each item containing one line
 	lines = msg.split('\n')
@@ -196,6 +196,9 @@ def parseSipMessage(msg):
 	for i in range(len(lines)):
 		# Take first line and remove from list of lines
 		line = lines.pop(0)
+
+		# Strip each line of leading and trailing whitespaces
+		line = line.strip("\n\r\t ")
 
 		# Break on empty line (end of headers)
 		if len(line.strip(' ')) == 0:
@@ -226,6 +229,7 @@ def parseSipMessage(msg):
 
 	# Get body and reattach lines
 	body = "\n".join(lines)
+	body = body.strip("\n\r\t ")
 
 	# Return message type, header dictionary, and body string
 	return (msgType, headers, body)
