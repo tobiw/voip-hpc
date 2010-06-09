@@ -20,16 +20,15 @@
 #
 ################################################################################
 
-import sip
 import asyncore
+import sip
 
 if __name__ == '__main__':
 	s = sip.sip()
 	s.bind(('localhost', 1111))
 
 	try:
-		while True:
-			asyncore.loop()
+		asyncore.loop()
 	except KeyboardInterrupt:
 		pass
 
