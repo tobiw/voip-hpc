@@ -27,7 +27,7 @@
 
 import socket, time
 from sip import sip, parseSipMessage
-from nose.tools import assert_equals, raises, timed, with_setup
+from nose.tools import assert_equals
 
 class TestSipMessageParser:
 	def test_correct_parsing(self):
@@ -89,47 +89,47 @@ class TestSipMessageParser:
 		assert_equals(headers["content-length"], "0")
 		assert_equals(body, "")
 
-class TestSipConnection:
-	@classmethod
-	def setUpClass(self):
-		# Create socket to send messages to the SIP parser
-		self.sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		self.sender.bind(('', 0))
-
-		# Create SIP parser
-		self.sip = sip()
-
-	@classmethod
-	def tearDownClass(self):
-		self.sender.close()
-
-	def sendMessage(self, msg):
-		self.sender.sendto(msg.encode('utf-8'), (('localhost', 1111)))
-
-	def test_request_with_random_newlines(self):
-		"""Test SIP connection with random CRLFs"""
-		self.sendMessage("\r\n\r\n\r\r\n\r\r\r" + """\
-			INVITE sip:foo SIP/2.0
-			From: test
-			To: foo
-			Content-Length: 4
-
-			1234""")
-
-	def test_short_request_with_random_newlines(self):
-		"""Test SIP connection with short headers and random CRLFs"""
-		self.sendMessage("\r\n\r\n\r\r\n\r\r\r" + """\
-			INVITE sip:foo SIP/2.0
-			f: test
-			t: foo
-			l: 4
-
-			1234""")
-
-	def test_request_without_contentlength(self):
-		"""Test SIP connection without Content-Length"""
-		self.sendMessage("""INVITE sip:foo SIP/2.0
-			f: test
-			t: foo
-
-			123456789""")
+#class TestSipConnection:
+#	@classmethod
+#	def setUpClass(self):
+#		# Create socket to send messages to the SIP parser
+#		self.sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#		self.sender.bind(('', 0))
+#
+#		# Create SIP parser which listens on port 1111
+#		self.sip = sip()
+#
+#	@classmethod
+#	def tearDownClass(self):
+#		self.sender.close()
+#
+#	def sendMessage(self, msg):
+#		self.sender.sendto(msg.encode('utf-8'), (('localhost', 1111)))
+#
+#	def test_request_with_random_newlines(self):
+#		"""Test SIP connection with random CRLFs"""
+#		self.sendMessage("\r\n\r\n\r\r\n\r\r\r" + """\
+#			INVITE sip:foo SIP/2.0
+#			From: test
+#			To: foo
+#			Content-Length: 4
+#
+#			1234""")
+#
+#	def test_short_request_with_random_newlines(self):
+#		"""Test SIP connection with short headers and random CRLFs"""
+#		self.sendMessage("\r\n\r\n\r\r\n\r\r\r" + """\
+#			INVITE sip:foo SIP/2.0
+#			f: test
+#			t: foo
+#			l: 4
+#
+#			1234""")
+#
+#	def test_request_without_contentlength(self):
+#		"""Test SIP connection without Content-Length"""
+#		self.sendMessage("""INVITE sip:foo SIP/2.0
+#			f: test
+#			t: foo
+#
+#			123456789""")
