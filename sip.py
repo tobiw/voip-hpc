@@ -168,6 +168,10 @@ for k, v in shortHeaders.items():
     longHeaders[v] = k
 del k, v
 
+def printSipHeader(header):
+	for k, v in header.items():
+		print(k + ": " + v)
+
 def parseSipMessage(msg):
 	"""Parses a SIP message, returns a tupel (type, header, body)"""
 	# Normalize line feed and carriage return to \n
@@ -254,40 +258,49 @@ class sip(connection):
 		msgType, headers, body = parseSipMessage(data)
 
 		if msgType == 'INVITE':
-			self.sip_INVITE(data, data)
+			self.sip_INVITE(headers, body)
 		elif msgType == 'ACK':
-			self.sip_ACK(data, data)
+			self.sip_ACK(headers, body)
 		elif msgType == 'OPTIONS':
-			self.sip_OPTIONS(data, data)
+			self.sip_OPTIONS(headers, body)
 		elif msgType == 'BYE':
-			self.sip_BYE(data, data)
+			self.sip_BYE(headers, body)
 		elif msgType == 'CANCEL':
-			self.sip_CANCEL(data, data)
+			self.sip_CANCEL(headers, body)
 		elif msgType == 'REGISTER':
-			self.sip_REGISTER(data, data)
+			self.sip_REGISTER(headers, body)
 		elif msgType == 'SIP/2.0':
-			self.sip_RESPONSE(data, data)
+			self.sip_RESPONSE(headers, body)
+		elif msgType == 'Error':
+			print("Error on parsing SIP message")
 		else:
 			print("Error: unknown header")
 
 	# SIP message type handlers
-	def sip_INVITE(self, header, body):
+	def sip_INVITE(self, headers, body):
 		print("SIP: Received INVITE")
+		printSipHeader(headers)
 
-	def sip_ACK(self):
+	def sip_ACK(self, headers, body):
 		print("SIP: Received ACK")
+		printSipHeader(headers)
 
-	def sip_OPTIONS(self, header, body):
+	def sip_OPTIONS(self, headers, body):
 		print("SIP: Received OPTIONS")
+		printSipHeader(headers)
 
-	def sip_BYE(self, header, body):
+	def sip_BYE(self, headers, body):
 		print("SIP: Received BYE")
+		printSipHeader(headers)
 
-	def sip_CANCEL(self, header, body):
+	def sip_CANCEL(self, headers, body):
 		print("SIP: Received CANCEL")
+		printSipHeader(headers)
 
-	def sip_REGISTER(self, header, body):
+	def sip_REGISTER(self, headers, body):
 		print("SIP: Received REGISTER")
+		printSipHeader(headers)
 
-	def sip_RESPONSE(self, header, body):
+	def sip_RESPONSE(self, headers, body):
 		print("SIP: Received a response")
+		printSipHeader(headers)

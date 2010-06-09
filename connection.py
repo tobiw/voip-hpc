@@ -20,7 +20,8 @@
 #
 ################################################################################
 
-import socket, asyncore
+import socket
+import asyncore
 import time
 
 class connection(asyncore.dispatcher):
