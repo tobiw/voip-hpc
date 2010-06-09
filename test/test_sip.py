@@ -29,37 +29,67 @@ import socket, time
 from sip import sip, parseSipMessage
 from nose.tools import assert_equals, raises, timed, with_setup
 
-def test_correct_parsing():
-	"""Test message parsing for correctness"""
-	msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
-		From: test
-		To: foo
-		Content-Length: 4
+class TestSipMessageParser:
+	def test_correct_parsing(self):
+		"""Test message parsing for correctness"""
+		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+			From: test
+			To: foo
+			Content-Length: 4
 
-		1234""")
+			1234""")
 
-	assert_equals(msgType, "INVITE")
-	assert_equals(headers["from"], "test")
-	assert_equals(headers["to"], "foo")
-	assert_equals(headers["content-length"], "4")
-	assert_equals(body, "1234")
+		assert_equals(msgType, "INVITE")
+		assert_equals(headers["from"], "test")
+		assert_equals(headers["to"], "foo")
+		assert_equals(headers["content-length"], "4")
+		assert_equals(body, "1234")
 
-def test_correct_parsing_short_headers():
-	"""Test message parsing for correctness with short headers"""
-	msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
-		f: test
-		t: foo
-		l: 4
+	def test_correct_parsing_short_headers(self):
+		"""Test message parsing for correctness with short headers"""
+		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+			f: test
+			t: foo
+			l: 4
 
-		1234""")
+			1234""")
 
-	assert_equals(msgType, "INVITE")
-	assert_equals(headers["from"], "test")
-	assert_equals(headers["to"], "foo")
-	assert_equals(headers["content-length"], "4")
-	assert_equals(body, "1234")
+		assert_equals(msgType, "INVITE")
+		assert_equals(headers["from"], "test")
+		assert_equals(headers["to"], "foo")
+		assert_equals(headers["content-length"], "4")
+		assert_equals(body, "1234")
 
-class TestMessageParser:
+	def test_correct_parsing_empty_body(self):
+		"""Test message parsing for correctness with an empty body"""
+		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+			f: test
+			t: foo
+			l: 0""")
+
+		assert_equals(msgType, "INVITE")
+		assert_equals(headers["from"], "test")
+		assert_equals(headers["to"], "foo")
+		assert_equals(headers["content-length"], "0")
+		assert_equals(body, "")
+
+	def test_mixed_short_and_long_headers(self):
+		"""Test message parsing for correctness with mixed short and long
+		headers"""
+		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+			From: test
+			t: foo
+			v: foobar
+			content-length: 0""")
+
+		assert_equals(msgType, "INVITE")
+		assert_equals(headers["from"], "test")
+		assert_equals(headers["to"], "foo")
+		assert_equals(headers["via"], "foobar")
+		assert_equals(headers["content-length"], "0")
+		assert_equals(body, "")
+
+class TestSipConnection:
 	@classmethod
 	def setUpClass(self):
 		# Create socket to send messages to the SIP parser
@@ -77,7 +107,7 @@ class TestMessageParser:
 		self.sender.sendto(msg.encode('utf-8'), (('localhost', 1111)))
 
 	def test_request_with_random_newlines(self):
-		"""Test message parsing with random CRLFs"""
+		"""Test SIP connection with random CRLFs"""
 		self.sendMessage("\r\n\r\n\r\r\n\r\r\r" + """\
 			INVITE sip:foo SIP/2.0
 			From: test
@@ -87,7 +117,7 @@ class TestMessageParser:
 			1234""")
 
 	def test_short_request_with_random_newlines(self):
-		"""Test message parsing with short headers and random CRLFs"""
+		"""Test SIP connection with short headers and random CRLFs"""
 		self.sendMessage("\r\n\r\n\r\r\n\r\r\r" + """\
 			INVITE sip:foo SIP/2.0
 			f: test
@@ -97,7 +127,7 @@ class TestMessageParser:
 			1234""")
 
 	def test_request_without_contentlength(self):
-		"""Test message parsing without Content-Length"""
+		"""Test SIP connection without Content-Length"""
 		self.sendMessage("""INVITE sip:foo SIP/2.0
 			f: test
 			t: foo
