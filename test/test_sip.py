@@ -25,9 +25,11 @@
 #
 ################################################################################
 
-import socket, time
-from sip import sip, parseSipMessage
+import socket
+import time
 from nose.tools import assert_equals
+
+from sip import sip, parseSipMessage
 
 class TestSipMessageParser:
 	def test_correct_parsing(self):

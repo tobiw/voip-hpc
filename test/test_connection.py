@@ -20,10 +20,9 @@
 #
 ################################################################################
 
+from nose.tools import assert_equals, raises
+
 from connection import connection
-from nose.tools import assert_equals, raises, timed, with_setup
-#from nose.plugins.attrib import attr
-#from mock import patch
 
 def test_connection_tcp():
 	"""Creation of a TCP (default) connection object"""
