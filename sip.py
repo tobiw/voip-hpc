@@ -25,6 +25,8 @@
 #
 ################################################################################
 
+import urllib.parse
+
 from connection import connection
 
 TRYING                      = '100'
@@ -173,9 +175,12 @@ def printSipHeader(header):
 		print(k + ": " + v)
 
 def parseSipMessage(msg):
-	"""Parses a SIP message, returns a tupel (type, header, body)"""
+	"""Parses a SIP message (string), returns a tupel (type, header, body)"""
 	# Normalize line feed and carriage return to \n
 	msg = msg.replace("\n\r", "\n")
+
+	# Decode message (e.g. "%20" -> " ")
+	msg = urllib.parse.unquote(msg)
 
 	# Sanitize input: remove superfluous leading and trailing newlines and
 	# spaces
