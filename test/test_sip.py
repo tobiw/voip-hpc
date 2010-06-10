@@ -33,7 +33,7 @@ from sip import sip, parseSipMessage
 
 class TestSipMessageParser:
 	def test_correct_parsing(self):
-		"""Test message parsing for correctness"""
+		"""Test normal message parsing for correctness"""
 		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
 			From: test
 			To: foo
@@ -90,6 +90,28 @@ class TestSipMessageParser:
 		assert_equals(headers["via"], "foobar")
 		assert_equals(headers["content-length"], "0")
 		assert_equals(body, "")
+
+	def test_long_header_line(self):
+		"""Test message parsing with a very long header line"""
+		msgType, headers, body = parseSipMessage("INVITE sip:foo SIP/2.0\n" + \
+			"From: " + "x" * 1000)
+
+		assert_equals(msgType, "INVITE")
+		assert_equals(headers["from"], "x" * 1000)
+
+	def test_header_decoding(self):
+		"""Test message decoding of encoded characters in header"""
+		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+			From: %20foobar%20%20""")
+
+		assert_equals(msgType, "INVITE")
+		assert_equals(headers["from"], "foobar")
+
+	def test_all_request_types(self):
+		"""Test correct message parsing of all request types"""
+		for t in ["INVITE", "ACK", "OPTIONS", "BYE", "CANCEL", "REGISTER"]:
+			msgType, _, _ = parseSipMessage(t + " foo SIP/2.0\n")
+			assert_equals(msgType, t)
 
 #class TestSipConnection:
 #	@classmethod
