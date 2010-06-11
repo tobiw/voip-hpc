@@ -176,15 +176,26 @@ def printSipHeader(header):
 
 def parseSipMessage(msg):
 	"""Parses a SIP message (string), returns a tupel (type, header, body)"""
+	# Sanitize input: remove superfluous leading and trailing newlines and
+	# spaces
+	msg = msg.strip("\n\r\t ")
+
+	# Split request/status line plus headers and body: we don't care about the
+	# body in the SIP parser
+	parts = msg.split("\n\n")
+	if len(parts) < 1:
+		return ("Error", {}, "")
+
+	msg = parts[0]
+
+	# Python way of doing a ? b : c
+	body = len(parts) == 2 and parts[1] or ""
+
 	# Normalize line feed and carriage return to \n
 	msg = msg.replace("\n\r", "\n")
 
 	# Decode message (e.g. "%20" -> " ")
 	msg = urllib.parse.unquote(msg)
-
-	# Sanitize input: remove superfluous leading and trailing newlines and
-	# spaces
-	msg = msg.strip("\n\r\t ")
 
 	# Split lines into a list, each item containing one line
 	lines = msg.split('\n')
@@ -235,10 +246,6 @@ def parseSipMessage(msg):
 
 		# Assign header value to header key
 		headers[identifier] = line[sep+1:].strip(' ')
-
-	# Get body and reattach lines
-	body = "\n".join(lines)
-	body = body.strip("\n\r\t ")
 
 	# Return message type, header dictionary, and body string
 	return (msgType, headers, body)
