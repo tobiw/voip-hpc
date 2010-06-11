@@ -34,12 +34,9 @@ sessionDescriptionTypes = {
 	"b": "bandwidth information",
 	"z": "time zone adjustment",
 	"k": "encryption key",
-	"a": "session attribute line"
-}
-
-timeDescriptionTypes = {
 	"t": "active time",
-	"r": "repeat time"
+	"r": "repeat time",
+	"a": "session attribute line"
 }
 
 mediaDescriptionTypes = {
@@ -51,9 +48,9 @@ mediaDescriptionTypes = {
 	"a": "attribute line"
 }
 
-def parseSdpMessage(self, msg):
-	"""Parses an SDP message (string), returns a dictionary with {type: value}
-	entries"""
+def parseSdpMessage(msg):
+	"""Parses an SDP message (string), returns a tupel of dictionaries with
+	{type: value} entries: (sessionDescription, mediaDescriptions)"""
 	# Normalize line feed and carriage return to \n
 	msg = msg.replace("\n\r", "\n")
 
@@ -64,15 +61,15 @@ def parseSdpMessage(self, msg):
 	# spaces
 	msg = msg.strip("\n\r\t ")
 
-	# Split message into session description, time description, and media
-	# description parts
-	SEC_SESSION, SEC_TIME, SEC_MEDIA = range(3)
+	# Split message into session description, and media description parts
+	SEC_SESSION, SEC_MEDIA = range(2)
 	curSection = SEC_SESSION
 	sessionDescription = {}
-	timeDescription = {}
 	mediaDescriptions = []
 	mediaDescriptionNumber = -1
-	
+
+	# Process each line individually
+	lines = msg.split("\n")
 	for line in lines:
 		# Get first two characters of line and check for "type="
 		if len(line) < 2 or line[1] != "=":
@@ -81,10 +78,8 @@ def parseSdpMessage(self, msg):
 		value = line[2:].strip("\n\r\t ")
 
 		# Change current section if necessary
-		# (session -> time -> media -> media -> ...)
-		if type == "t":
-			curSection = SEC_TIME
-		elif type == "m":
+		# (session -> media -> media -> ...)
+		if type == "m":
 			curSection = SEC_MEDIA
 			mediaDescriptionNumber += 1
 			mediaDescriptions.append({})
@@ -92,9 +87,7 @@ def parseSdpMessage(self, msg):
 		# Store the SDP values
 		if curSection == SEC_SESSION:
 			sessionDescription[type] = value
-		elif curSection == SEC_TIME:
-			timeDescription[type] = value
 		elif curSection == SEC_MEDIA:
-			mediaDescriptions[mediaDescriptionNumber] = value
+			mediaDescriptions[mediaDescriptionNumber][type] = value
 
-		return (sessionDescription, timeDescription, mediaDescriptions)
+	return (sessionDescription, mediaDescriptions)

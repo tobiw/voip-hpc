@@ -28,6 +28,7 @@
 import urllib.parse
 
 from connection import connection
+from sdp import parseSdpMessage
 
 TRYING                      = '100'
 RINGING                     = '180'
@@ -292,6 +293,14 @@ class sip(connection):
 	def sip_INVITE(self, headers, body):
 		print("SIP: Received INVITE")
 		printSipHeader(headers)
+
+		# Parse SDP part of session invite
+		if body:
+			sessionDescription, mediaDescription = parseSdpMessage(body)
+
+		print("Parsed SDP message:")
+		print(sessionDescription)
+		print(mediaDescription)
 
 	def sip_ACK(self, headers, body):
 		print("SIP: Received ACK")
