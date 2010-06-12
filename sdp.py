@@ -48,6 +48,9 @@ mediaDescriptionTypes = {
 	"a": "attribute line"
 }
 
+class SdpParsingError(Exception):
+	"""Exception class for errors occuring during SDP message parsing"""
+
 def parseSdpMessage(msg):
 	"""Parses an SDP message (string), returns a tupel of dictionaries with
 	{type: value} entries: (sessionDescription, mediaDescriptions)"""
@@ -69,25 +72,29 @@ def parseSdpMessage(msg):
 	mediaDescriptionNumber = -1
 
 	# Process each line individually
-	lines = msg.split("\n")
-	for line in lines:
-		# Get first two characters of line and check for "type="
-		if len(line) < 2 or line[1] != "=":
-			return "Error"
-		type = line[0]
-		value = line[2:].strip("\n\r\t ")
+	if len(msg) > 0:
+		lines = msg.split("\n")
+		for line in lines:
+			# Get first two characters of line and check for "type="
+			if len(line) < 2:
+				raise SdpParsingError("Line too short")
+			elif line[1] != "=":
+				raise SdpParsingError("Invalid SDP line")
 
-		# Change current section if necessary
-		# (session -> media -> media -> ...)
-		if type == "m":
-			curSection = SEC_MEDIA
-			mediaDescriptionNumber += 1
-			mediaDescriptions.append({})
+			type = line[0]
+			value = line[2:].strip("\n\r\t ")
 
-		# Store the SDP values
-		if curSection == SEC_SESSION:
-			sessionDescription[type] = value
-		elif curSection == SEC_MEDIA:
-			mediaDescriptions[mediaDescriptionNumber][type] = value
+			# Change current section if necessary
+			# (session -> media -> media -> ...)
+			if type == "m":
+				curSection = SEC_MEDIA
+				mediaDescriptionNumber += 1
+				mediaDescriptions.append({})
+
+			# Store the SDP values
+			if curSection == SEC_SESSION:
+				sessionDescription[type] = value
+			elif curSection == SEC_MEDIA:
+				mediaDescriptions[mediaDescriptionNumber][type] = value
 
 	return (sessionDescription, mediaDescriptions)
