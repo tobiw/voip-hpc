@@ -25,11 +25,9 @@
 #
 ################################################################################
 
-import socket
-import time
-from nose.tools import assert_equals
+from nose.tools import assert_equals, raises
 
-from sip import sip, parseSipMessage
+from sip import parseSipMessage, SipParsingError
 
 class TestSipMessageParser:
 	def test_correct_parsing(self):
@@ -37,9 +35,7 @@ class TestSipMessageParser:
 		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
 			From: test
 			To: foo
-			Content-Length: 4
-
-			1234""")
+			Content-Length: 4\n\n1234""")
 
 		assert_equals(msgType, "INVITE")
 		assert_equals(headers["from"], "test")
@@ -52,9 +48,7 @@ class TestSipMessageParser:
 		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
 			f: test
 			t: foo
-			l: 4
-
-			1234""")
+			l: 4\n\n1234""")
 
 		assert_equals(msgType, "INVITE")
 		assert_equals(headers["from"], "test")
@@ -112,3 +106,14 @@ class TestSipMessageParser:
 		for t in ["INVITE", "ACK", "OPTIONS", "BYE", "CANCEL", "REGISTER"]:
 			msgType, _, _ = parseSipMessage(t + " foo SIP/2.0\n")
 			assert_equals(msgType, t)
+
+	@raises(SipParsingError)
+	def test_exception_on_malformed_request_line(self):
+		"""Test SIP message parsing with malformed request line"""
+		parseSipMessage("INVITE \n")
+
+	@raises(SipParsingError)
+	def test_exception_on_malformed_header_line(self):
+		"""Test SIP message parsing with malformed header line"""
+		parseSipMessage("INVITE foo SIP/2.0\nfrom=foo\nto=test\n\n")
+
