@@ -175,6 +175,9 @@ def printSipHeader(header):
 	for k, v in header.items():
 		print(k + ": " + v)
 
+class SipParsingError(Exception):
+	"""Exception class for errors occuring during SIP message parsing"""
+
 def parseSipMessage(msg):
 	"""Parses a SIP message (string), returns a tupel (type, header, body)"""
 	# Sanitize input: remove superfluous leading and trailing newlines and
@@ -185,7 +188,7 @@ def parseSipMessage(msg):
 	# body in the SIP parser
 	parts = msg.split("\n\n")
 	if len(parts) < 1:
-		return ("Error", {}, "")
+		raise SipParsingError("Message too short")
 
 	msg = parts[0]
 
@@ -204,8 +207,7 @@ def parseSipMessage(msg):
 	# Get message type (first word, smallest possible one is "ACK" or "BYE")
 	sep = lines[0].find(' ')
 	if sep < 3:
-		print("Malformed SIP message")
-		return ("Error", {}, "") # TODO: throw Exception?
+		raise SipParsingError("Malformed request or status line")
 
 	msgType = lines[0][0:sep]
 
@@ -228,8 +230,7 @@ def parseSipMessage(msg):
 		# Parse header lines
 		sep = line.find(':')
 		if sep < 1:
-			print("Malformed SIP header")
-			return ("Error", {}, "")
+			raise SipParsingError("Malformed header line (no ':')")
 
 		# Get header identifier (word before the ':')
 		identifier = line[:sep]
@@ -238,8 +239,7 @@ def parseSipMessage(msg):
 		# Check for valid header
 		if identifier not in shortHeaders.keys() and \
 			identifier not in longHeaders.keys():
-			print("Unknown header type: '{}'".format(identifier))
-			return ("Error", {}, "")
+			raise SipParsingError("Unknown header type: {}".format(identifier))
 
 		# Get long header identifier if necessary
 		if identifier in longHeaders.keys():
