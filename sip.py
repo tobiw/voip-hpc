@@ -26,9 +26,17 @@
 ################################################################################
 
 import urllib.parse
+import logging
 
 from connection import connection
 from sdp import parseSdpMessage
+
+# Setup logging mechanism
+logger = logging.getLogger('sip')
+logger.setLevel(logging.DEBUG)
+logConsole = logging.StreamHandler()
+logConsole.setLevel(logging.DEBUG)
+logger.addHandler(logConsole)
 
 TRYING                      = '100'
 RINGING                     = '180'
@@ -180,6 +188,9 @@ class SipParsingError(Exception):
 
 def parseSipMessage(msg):
 	"""Parses a SIP message (string), returns a tupel (type, header, body)"""
+	logger.debug("parseSipMessage")
+	logger.info("parseSipMessage")
+
 	# Sanitize input: remove superfluous leading and trailing newlines and
 	# spaces
 	msg = msg.strip("\n\r\t ")
@@ -188,6 +199,7 @@ def parseSipMessage(msg):
 	# body in the SIP parser
 	parts = msg.split("\n\n")
 	if len(parts) < 1:
+		logger.error("Message too short")
 		raise SipParsingError("Message too short")
 
 	msg = parts[0]
@@ -253,10 +265,10 @@ def parseSipMessage(msg):
 
 class sip(connection):
 	"""Only UDP connections are supported at the moment"""
-	NO_SESSION = range(1)
+	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
 	def __init__(self):
 		connection.__init__(self, 'udp')
-		self.__state = self.NO_SESSION
+		self.__state = sip.NO_SESSION
 		self.__lastResponse = 0
 
 	def handle_read(self):
@@ -291,16 +303,28 @@ class sip(connection):
 
 	# SIP message type handlers
 	def sip_INVITE(self, headers, body):
-		print("SIP: Received INVITE")
+		logger.debug("SIP: Received INVITE")
 		printSipHeader(headers)
 
+		if not body:
+			print("INVITE without SDP message: exit")
+			return
+
 		# Parse SDP part of session invite
-		if body:
-			sessionDescription, mediaDescription = parseSdpMessage(body)
+		sessionDescription, mediaDescription = parseSdpMessage(body)
+
+		# Check for all necessary fields
+		sdpSessionOwnerParts = sessionDescription['o'].split(' ')
+		if len(sdpSessionOwnerParts) < 6:
+			print("SDP session owner field to short: exit")
+			return
 
 		print("Parsed SDP message:")
 		print(sessionDescription)
 		print(mediaDescription)
+
+		# Going into session setup mode (i.e. waiting for 200 OK response)
+		self.__state = sip.SESSION_SETUP
 
 	def sip_ACK(self, headers, body):
 		print("SIP: Received ACK")
