@@ -93,8 +93,16 @@ def parseSdpMessage(msg):
 
 			# Store the SDP values
 			if curSection == SEC_SESSION:
-				sessionDescription[type] = value
+				if type not in sessionDescriptionTypes:
+					raise SdpParsingError(
+						"Invalid session description type: " + type)
+				else:
+					sessionDescription[type] = value
 			elif curSection == SEC_MEDIA:
-				mediaDescriptions[mediaDescriptionNumber][type] = value
+				if type not in mediaDescriptionTypes:
+					raise SdpParsingError(
+						"Invalid media description type: " + type)
+				else:
+					mediaDescriptions[mediaDescriptionNumber][type] = value
 
 	return (sessionDescription, mediaDescriptions)
