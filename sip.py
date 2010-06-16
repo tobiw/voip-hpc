@@ -256,27 +256,64 @@ def parseSipMessage(msg):
 	# Return message type, header dictionary, and body string
 	return (msgType, firstLine, headers, body)
 
+class sipsession:
+	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
+	sipConnection = None
+
+	def __init__(self, conInfo, callId):
+		if not sipsession.sipConnection:
+			logger.error("SIP connection class variable not set")
+
+		self.__callId = callId
+		self.__state = sipsession.SESSION_SETUP
+		self.__address = conInfo[0]
+		self.__port = conInfo[1]
+
+	def handle_ACK(self, headers, body):
+		if self.__state == sipsession.SESSION_SETUP:
+			logger.debug(
+				"Waiting for ACK after INVITE -> got ACK -> active session")
+			logger.info("Connection accepted (session {})".format(
+				self.__callId))
+			self.__state = sipsession.ACTIVE_SESSION
+
+	def handle_BYE(self, headers, body):
+		# a BYE ends the session immediately
+		self.__state = sipsession.NO_SESSION
+
+		# Send OK response to other client
+		self.send("SIP/2.0 200 OK\n")
+
+	def send(self, s):
+		logger.debug("SIP session: sending to ({},{})".format(
+			self.__address, self.__port))
+		sipsession.sipConnection.sendto(s.encode('utf-8'),
+				(self.__address, self.__port))
+
 class sip(connection):
 	"""Only UDP connections are supported at the moment"""
-	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
 	def __init__(self):
 		connection.__init__(self, 'udp')
-		self.__state = sip.NO_SESSION
-		self.__lastResponse = 0
+
+		# Set SIP connection in session class variable
+		sipsession.sipConnection = self
+
+		# Dictionary with SIP sessions (key is call-id)
+		self.__sessions = {}
 
 	def handle_read(self):
 		"""Callback for handling incoming SIP traffic"""
 		# TODO: Handle long messages
-		data = self.recvfrom(1024)
+		data, conInfo = self.recvfrom(1024)
 
-		# recvfrom returns a tupel so get byte data and decode to string
-		data = data[0].decode("utf-8")
+		# Get byte data and decode to string
+		data = data.decode("utf-8")
 
 		# Parse SIP message
 		msgType, firstLine, headers, body = parseSipMessage(data)
 
 		if msgType == 'INVITE':
-			self.sip_INVITE(firstLine, headers, body)
+			self.sip_INVITE(conInfo, firstLine, headers, body)
 		elif msgType == 'ACK':
 			self.sip_ACK(firstLine, headers, body)
 		elif msgType == 'OPTIONS':
@@ -295,7 +332,7 @@ class sip(connection):
 			logger.error("Error: unknown header")
 
 	# SIP message type handlers
-	def sip_INVITE(self, requestLine, headers, body):
+	def sip_INVITE(self, conInfo, requestLine, headers, body):
 		# Print SIP header
 		logger.info("Received INVITE")
 		for k, v in headers.items():
@@ -323,20 +360,34 @@ class sip(connection):
 		logger.debug(sessionDescription)
 		logger.debug(mediaDescription)
 
+		if "call-id" not in headers:
+			logger.error("SIP headers have to include Call-ID: exit")
+			return
+
 		# To establish connection: send '200 OK'
-		self.__state = sip.SESSION_SETUP
+		callId = headers["call-id"]
+		newSession = sipsession(conInfo, callId)
+		newSession.send("SIP/2.0 200 OK\n")
+
+		# Store session object in sessions dictionary
+		self.__sessions[callId] = newSession
 
 	def sip_ACK(self, requestLine, headers, body):
 		logger.info("Received ACK")
+
+		if "call-id" not in headers:
+			logger.error("SIP headers have to include Call-ID: exit")
+			return
+
+		# Get SIP session for given Call-ID
+		try:
+			s = self.__sessions[headers["call-id"]]
+		except KeyError:
+			logger.error("Given Call-ID does not belong to a session: exit")
+			return
 		
 		# Handle incoming ACKs depending on current state
-		# TODO: use Call-ID to identify particular sessions
-		if self.__state == sip.SESSION_SETUP:
-			logger.info("Waiting for 200 OK -> got OK -> active session")
-			self.__state = sip.ACTIVE_SESSION
-		elif self.__state == sip.SESSION_TEARDOWN:
-			logger.info("Waiting for 200 OK -> got OK -> end session")
-			self.__state = sip.NO_SESSION
+		s.handle_ACK(headers, body)
 
 	def sip_OPTIONS(self, requestLine, headers, body):
 		logger.info("Received OPTIONS")
@@ -344,7 +395,19 @@ class sip(connection):
 	def sip_BYE(self, requestLine, headers, body):
 		logger.info("Received BYE")
 
-		self.__state = sip.SESSION_TEARDOWN
+		if "call-id" not in headers:
+			logger.error("SIP headers have to include Call-ID: exit")
+			return
+
+		# Get SIP session for given Call-ID
+		try:
+			s = self.__sessions[headers["call-id"]]
+		except KeyError:
+			logger.error("Given Call-ID does not belong to a session: exit")
+			return
+		
+		# Handle incoming BYE request depending on current state
+		s.handle_BYE(headers, body)
 
 	def sip_CANCEL(self, requestLine, headers, body):
 		logger.info("Received CANCEL")
