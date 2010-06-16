@@ -25,7 +25,6 @@
 #
 ################################################################################
 
-import urllib.parse
 import logging
 
 from connection import connection
@@ -291,9 +290,9 @@ class sip(connection):
 		elif msgType == 'SIP/2.0':
 			self.sip_RESPONSE(firstLine, headers, body)
 		elif msgType == 'Error':
-			print("Error on parsing SIP message")
+			logger.error("Error on parsing SIP message")
 		else:
-			print("Error: unknown header")
+			logger.error("Error: unknown header")
 
 	# SIP message type handlers
 	def sip_INVITE(self, requestLine, headers, body):
@@ -328,7 +327,7 @@ class sip(connection):
 		self.__state = sip.SESSION_SETUP
 
 	def sip_ACK(self, requestLine, headers, body):
-		print("Received ACK")
+		logger.info("Received ACK")
 		
 		# Handle incoming ACKs depending on current state
 		# TODO: use Call-ID to identify particular sessions
@@ -340,18 +339,18 @@ class sip(connection):
 			self.__state = sip.NO_SESSION
 
 	def sip_OPTIONS(self, requestLine, headers, body):
-		print("Received OPTIONS")
+		logger.info("Received OPTIONS")
 
 	def sip_BYE(self, requestLine, headers, body):
-		print("Received BYE")
+		logger.info("Received BYE")
 
 		self.__state = sip.SESSION_TEARDOWN
 
 	def sip_CANCEL(self, requestLine, headers, body):
-		print("Received CANCEL")
+		logger.info("Received CANCEL")
 
 	def sip_REGISTER(self, requestLine, headers, body):
-		print("Received REGISTER")
+		logger.info("Received REGISTER")
 
 	def sip_RESPONSE(self, statusLine, headers, body):
-		print("Received a response")
+		logger.info("Received a response")

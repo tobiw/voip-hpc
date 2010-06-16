@@ -23,6 +23,16 @@
 import socket
 import asyncore
 import time
+import logging
+
+# Setup logging mechanism
+logger = logging.getLogger('connection')
+logger.setLevel(logging.DEBUG)
+logConsole = logging.StreamHandler()
+logConsole.setLevel(logging.DEBUG)
+logConsole.setFormatter(logging.Formatter(
+	"%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logger.addHandler(logConsole)
 
 class connection(asyncore.dispatcher):
 	"""Connection class mockup (from connection.pyx in dionaea src)"""
@@ -43,7 +53,7 @@ class connection(asyncore.dispatcher):
 
 	def handle_established(self):
 		"""Callback for a newly established connection (client or server)"""
-		print('Session established')
+		logger.info('Session established')
 
 	def handle_read(self):
 		"""Callback for incoming data (dionaea: handle_io_in)"""
@@ -60,7 +70,7 @@ class connection(asyncore.dispatcher):
 	def handle_close(self):
 		"""Callback for a closed connection"""
 		self.close()
-		print('Session closed')
+		logger.info('Session closed')
 
 	def handle_accept(self):
 		"""Callback for successful accept (server)"""
