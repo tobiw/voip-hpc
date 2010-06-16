@@ -29,13 +29,15 @@ import urllib.parse
 import logging
 
 from connection import connection
-from sdp import parseSdpMessage
+from sdp import parseSdpMessage, SdpParsingError
 
 # Setup logging mechanism
 logger = logging.getLogger('sip')
 logger.setLevel(logging.DEBUG)
 logConsole = logging.StreamHandler()
 logConsole.setLevel(logging.DEBUG)
+logConsole.setFormatter(logging.Formatter(
+	"%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 logger.addHandler(logConsole)
 
 TRYING                      = '100'
@@ -179,18 +181,12 @@ for k, v in shortHeaders.items():
     longHeaders[v] = k
 del k, v
 
-def printSipHeader(header):
-	for k, v in header.items():
-		print(k + ": " + v)
-
 class SipParsingError(Exception):
 	"""Exception class for errors occuring during SIP message parsing"""
 
 def parseSipMessage(msg):
-	"""Parses a SIP message (string), returns a tupel (type, header, body)"""
-	logger.debug("parseSipMessage")
-	logger.info("parseSipMessage")
-
+	"""Parses a SIP message (string), returns a tupel (type, firstLine, header,
+	body)"""
 	# Sanitize input: remove superfluous leading and trailing newlines and
 	# spaces
 	msg = msg.strip("\n\r\t ")
@@ -210,9 +206,6 @@ def parseSipMessage(msg):
 	# Normalize line feed and carriage return to \n
 	msg = msg.replace("\n\r", "\n")
 
-	# Decode message (e.g. "%20" -> " ")
-	msg = urllib.parse.unquote(msg)
-
 	# Split lines into a list, each item containing one line
 	lines = msg.split('\n')
 
@@ -221,7 +214,8 @@ def parseSipMessage(msg):
 	if sep < 3:
 		raise SipParsingError("Malformed request or status line")
 
-	msgType = lines[0][0:sep]
+	msgType = lines[0][:sep]
+	firstLine = lines[0][sep+1:]
 
 	# Done with first line: delete from list of lines
 	del lines[0]
@@ -261,7 +255,7 @@ def parseSipMessage(msg):
 		headers[identifier] = line[sep+1:].strip(' ')
 
 	# Return message type, header dictionary, and body string
-	return (msgType, headers, body)
+	return (msgType, firstLine, headers, body)
 
 class sip(connection):
 	"""Only UDP connections are supported at the moment"""
@@ -280,72 +274,84 @@ class sip(connection):
 		data = data[0].decode("utf-8")
 
 		# Parse SIP message
-		msgType, headers, body = parseSipMessage(data)
+		msgType, firstLine, headers, body = parseSipMessage(data)
 
 		if msgType == 'INVITE':
-			self.sip_INVITE(headers, body)
+			self.sip_INVITE(firstLine, headers, body)
 		elif msgType == 'ACK':
-			self.sip_ACK(headers, body)
+			self.sip_ACK(firstLine, headers, body)
 		elif msgType == 'OPTIONS':
-			self.sip_OPTIONS(headers, body)
+			self.sip_OPTIONS(firstLine, headers, body)
 		elif msgType == 'BYE':
-			self.sip_BYE(headers, body)
+			self.sip_BYE(firstLine, headers, body)
 		elif msgType == 'CANCEL':
-			self.sip_CANCEL(headers, body)
+			self.sip_CANCEL(firstLine, headers, body)
 		elif msgType == 'REGISTER':
-			self.sip_REGISTER(headers, body)
+			self.sip_REGISTER(firstLine, headers, body)
 		elif msgType == 'SIP/2.0':
-			self.sip_RESPONSE(headers, body)
+			self.sip_RESPONSE(firstLine, headers, body)
 		elif msgType == 'Error':
 			print("Error on parsing SIP message")
 		else:
 			print("Error: unknown header")
 
 	# SIP message type handlers
-	def sip_INVITE(self, headers, body):
-		logger.debug("SIP: Received INVITE")
-		printSipHeader(headers)
+	def sip_INVITE(self, requestLine, headers, body):
+		# Print SIP header
+		logger.info("Received INVITE")
+		for k, v in headers.items():
+			logger.info("SIP header {}: {}".format(k, v))
 
+		# Check for SDP body
 		if not body:
-			print("INVITE without SDP message: exit")
+			logger.error("INVITE without SDP message: exit")
 			return
 
 		# Parse SDP part of session invite
-		sessionDescription, mediaDescription = parseSdpMessage(body)
+		try:
+			sessionDescription, mediaDescription = parseSdpMessage(body)
+		except SdpParsingError as e:
+			logger.error(e)
+			return
 
 		# Check for all necessary fields
 		sdpSessionOwnerParts = sessionDescription['o'].split(' ')
 		if len(sdpSessionOwnerParts) < 6:
-			print("SDP session owner field to short: exit")
+			logger.error("SDP session owner field to short: exit")
 			return
 
-		print("Parsed SDP message:")
-		print(sessionDescription)
-		print(mediaDescription)
+		logger.debug("Parsed SDP message:")
+		logger.debug(sessionDescription)
+		logger.debug(mediaDescription)
 
-		# Going into session setup mode (i.e. waiting for 200 OK response)
+		# To establish connection: send '200 OK'
 		self.__state = sip.SESSION_SETUP
 
-	def sip_ACK(self, headers, body):
-		print("SIP: Received ACK")
-		printSipHeader(headers)
+	def sip_ACK(self, requestLine, headers, body):
+		print("Received ACK")
+		
+		# Handle incoming ACKs depending on current state
+		# TODO: use Call-ID to identify particular sessions
+		if self.__state == sip.SESSION_SETUP:
+			logger.info("Waiting for 200 OK -> got OK -> active session")
+			self.__state = sip.ACTIVE_SESSION
+		elif self.__state == sip.SESSION_TEARDOWN:
+			logger.info("Waiting for 200 OK -> got OK -> end session")
+			self.__state = sip.NO_SESSION
 
-	def sip_OPTIONS(self, headers, body):
-		print("SIP: Received OPTIONS")
-		printSipHeader(headers)
+	def sip_OPTIONS(self, requestLine, headers, body):
+		print("Received OPTIONS")
 
-	def sip_BYE(self, headers, body):
-		print("SIP: Received BYE")
-		printSipHeader(headers)
+	def sip_BYE(self, requestLine, headers, body):
+		print("Received BYE")
 
-	def sip_CANCEL(self, headers, body):
-		print("SIP: Received CANCEL")
-		printSipHeader(headers)
+		self.__state = sip.SESSION_TEARDOWN
 
-	def sip_REGISTER(self, headers, body):
-		print("SIP: Received REGISTER")
-		printSipHeader(headers)
+	def sip_CANCEL(self, requestLine, headers, body):
+		print("Received CANCEL")
 
-	def sip_RESPONSE(self, headers, body):
-		print("SIP: Received a response")
-		printSipHeader(headers)
+	def sip_REGISTER(self, requestLine, headers, body):
+		print("Received REGISTER")
+
+	def sip_RESPONSE(self, statusLine, headers, body):
+		print("Received a response")
