@@ -267,30 +267,54 @@ def parseSipMessage(msg):
 	# Return message type, header dictionary, and body string
 	return (msgType, firstLine, headers, body)
 
+class RtpUdpStream(connection):
+	def __init__(self, address, port):
+		connection.__init__(self, 'udp')
+
+		self.__address = address
+		self.__port = port
+
+		logger.debug("Created RTP channel on port {}".format(port))
+
+	def handle_read(self):
+		pass
+
+	def handle_write(self):
+		pass
+
 class SipSession:
 	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
 	sipConnection = None
 
-	def __init__(self, conInfo, callId):
-		if not sipsession.sipConnection:
+	def __init__(self, conInfo, callId, rtpPort):
+		if not SipSession.sipConnection:
 			logger.error("SIP connection class variable not set")
 
 		self.__callId = callId
-		self.__state = sipsession.SESSION_SETUP
+		self.__state = SipSession.SESSION_SETUP
 		self.__address = conInfo[0]
 		self.__port = conInfo[1]
+		self.__rtpPort = rtpPort
 
 	def handle_ACK(self, headers, body):
-		if self.__state == sipsession.SESSION_SETUP:
+		if self.__state == SipSession.SESSION_SETUP:
 			logger.debug(
 				"Waiting for ACK after INVITE -> got ACK -> active session")
 			logger.info("Connection accepted (session {})".format(
 				self.__callId))
-			self.__state = sipsession.ACTIVE_SESSION
+
+			# Create RTP stream channel
+			self.__rtpStream = RtpUdpStream(self.__address, self.__rtpPort)
+
+			# Set current state to active (ready for multimedia stream)
+			self.__state = SipSession.ACTIVE_SESSION
 
 	def handle_BYE(self, headers, body):
-		# a BYE ends the session immediately
-		self.__state = sipsession.NO_SESSION
+		# Close RTP stream channel
+		self.__rtpStream.close()
+
+		# A BYE ends the session immediately
+		self.__state = SipSession.NO_SESSION
 
 		# Send OK response to other client
 		self.send("SIP/2.0 200 OK\n")
@@ -298,7 +322,7 @@ class SipSession:
 	def send(self, s):
 		logger.debug("SIP session: sending to ({},{})".format(
 			self.__address, self.__port))
-		sipsession.sipConnection.sendto(s.encode('utf-8'),
+		SipSession.sipConnection.sendto(s.encode('utf-8'),
 				(self.__address, self.__port))
 
 class Sip(connection):
@@ -307,7 +331,7 @@ class Sip(connection):
 		connection.__init__(self, 'udp')
 
 		# Set SIP connection in session class variable
-		sipsession.sipConnection = self
+		SipSession.sipConnection = self
 
 		# Dictionary with SIP sessions (key is call-id)
 		self.__sessions = {}
@@ -360,7 +384,7 @@ class Sip(connection):
 
 		# Parse SDP part of session invite
 		try:
-			sessionDescription, mediaDescription = parseSdpMessage(body)
+			sessionDescription, mediaDescriptions = parseSdpMessage(body)
 		except SdpParsingError as e:
 			logger.error(e)
 			return
@@ -373,15 +397,27 @@ class Sip(connection):
 
 		logger.debug("Parsed SDP message:")
 		logger.debug(sessionDescription)
-		logger.debug(mediaDescription)
+		logger.debug(mediaDescriptions)
 
 		if "call-id" not in headers:
 			logger.error("SIP headers have to include Call-ID: exit")
 			return
 
+		# Get RTP port from SDP media description
+		if len(mediaDescriptions) < 1:
+			logger.error("SDP message has to include a media description: exit")
+			return
+		
+		mediaDescriptionParts = mediaDescriptions[0]['m'].split(' ')
+		if mediaDescriptionParts[0] != 'audio':
+			logger.error("SDP media description has to be of audio type: exit")
+			return
+
+		rtpPort = mediaDescriptionParts[1]
+
 		# To establish connection: send '200 OK'
 		callId = headers["call-id"]
-		newSession = sipsession(conInfo, callId)
+		newSession = SipSession(conInfo, callId, rtpPort)
 		newSession.send("SIP/2.0 200 OK\n")
 
 		# Store session object in sessions dictionary
