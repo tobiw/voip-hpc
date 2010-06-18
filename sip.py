@@ -310,7 +310,11 @@ class sip(connection):
 		data = data.decode("utf-8")
 
 		# Parse SIP message
-		msgType, firstLine, headers, body = parseSipMessage(data)
+		try:
+			msgType, firstLine, headers, body = parseSipMessage(data)
+		except SipParsingError as e:
+			logger.error(e)
+			return
 
 		if msgType == 'INVITE':
 			self.sip_INVITE(conInfo, firstLine, headers, body)
