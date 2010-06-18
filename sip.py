@@ -250,8 +250,19 @@ def parseSipMessage(msg):
 		if identifier in longHeaders.keys():
 			identifier = longHeaders[identifier]
 
-		# Assign header value to header key
-		headers[identifier] = line[sep+1:].strip(' ')
+		# Get header value (line after ':')
+		value = line[sep+1:].strip(' ')
+
+		# The Via header can occur multiple times
+		if identifier == "via":
+			if identifier not in headers:
+				headers["via"] = [value]
+			else:
+				headers["via"].append(value)
+
+		# Assign any other header value directly to the header key
+		else:
+			headers[identifier] = value
 
 	# Return message type, header dictionary, and body string
 	return (msgType, firstLine, headers, body)
