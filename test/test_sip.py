@@ -32,12 +32,14 @@ from sip import parseSipMessage, SipParsingError
 class TestSipMessageParser:
 	def test_correct_parsing(self):
 		"""Test normal message parsing for correctness"""
-		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+		msgType, firstLine, headers, body = parseSipMessage(
+			"""INVITE sip:foo SIP/2.0
 			From: test
 			To: foo
 			Content-Length: 4\n\n1234""")
 
 		assert_equals(msgType, "INVITE")
+		assert_equals(firstLine, "sip:foo SIP/2.0")
 		assert_equals(headers["from"], "test")
 		assert_equals(headers["to"], "foo")
 		assert_equals(headers["content-length"], "4")
@@ -45,12 +47,14 @@ class TestSipMessageParser:
 
 	def test_correct_parsing_short_headers(self):
 		"""Test message parsing for correctness with short headers"""
-		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+		msgType, firstLine, headers, body = parseSipMessage(
+			"""INVITE sip:foo SIP/2.0
 			f: test
 			t: foo
 			l: 4\n\n1234""")
 
 		assert_equals(msgType, "INVITE")
+		assert_equals(firstLine, "sip:foo SIP/2.0")
 		assert_equals(headers["from"], "test")
 		assert_equals(headers["to"], "foo")
 		assert_equals(headers["content-length"], "4")
@@ -58,12 +62,14 @@ class TestSipMessageParser:
 
 	def test_correct_parsing_empty_body(self):
 		"""Test message parsing for correctness with an empty body"""
-		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+		msgType, firstLine, headers, body = parseSipMessage(
+			"""INVITE sip:foo SIP/2.0
 			f: test
 			t: foo
 			l: 0""")
 
 		assert_equals(msgType, "INVITE")
+		assert_equals(firstLine, "sip:foo SIP/2.0")
 		assert_equals(headers["from"], "test")
 		assert_equals(headers["to"], "foo")
 		assert_equals(headers["content-length"], "0")
@@ -72,39 +78,35 @@ class TestSipMessageParser:
 	def test_mixed_short_and_long_headers(self):
 		"""Test message parsing for correctness with mixed short and long
 		headers"""
-		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
+		msgType, firstLine, headers, body = parseSipMessage(
+			"""INVITE sip:foo SIP/2.0
 			From: test
 			t: foo
 			v: foobar
 			content-length: 0""")
 
 		assert_equals(msgType, "INVITE")
+		assert_equals(firstLine, "sip:foo SIP/2.0")
 		assert_equals(headers["from"], "test")
 		assert_equals(headers["to"], "foo")
-		assert_equals(headers["via"], "foobar")
+		assert_equals(headers["via"][0], "foobar")
 		assert_equals(headers["content-length"], "0")
 		assert_equals(body, "")
 
 	def test_long_header_line(self):
 		"""Test message parsing with a very long header line"""
-		msgType, headers, body = parseSipMessage("INVITE sip:foo SIP/2.0\n" + \
+		msgType, firstLine, headers, body = parseSipMessage(
+			"INVITE sip:foo SIP/2.0\n" + \
 			"From: " + "x" * 1000)
 
 		assert_equals(msgType, "INVITE")
+		assert_equals(firstLine, "sip:foo SIP/2.0")
 		assert_equals(headers["from"], "x" * 1000)
-
-	def test_header_decoding(self):
-		"""Test message decoding of encoded characters in header"""
-		msgType, headers, body = parseSipMessage("""INVITE sip:foo SIP/2.0
-			From: %20foobar%20%20""")
-
-		assert_equals(msgType, "INVITE")
-		assert_equals(headers["from"], "foobar")
 
 	def test_all_request_types(self):
 		"""Test correct message parsing of all request types"""
 		for t in ["INVITE", "ACK", "OPTIONS", "BYE", "CANCEL", "REGISTER"]:
-			msgType, _, _ = parseSipMessage(t + " foo SIP/2.0\n")
+			msgType = parseSipMessage(t + " foo SIP/2.0\n")[0]
 			assert_equals(msgType, t)
 
 	@raises(SipParsingError)
@@ -116,4 +118,19 @@ class TestSipMessageParser:
 	def test_exception_on_malformed_header_line(self):
 		"""Test SIP message parsing with malformed header line"""
 		parseSipMessage("INVITE foo SIP/2.0\nfrom=foo\nto=test\n\n")
+
+	def test_multiple_via_headers(self):
+		"""Test SIP message parsing with multiple Via header lines"""
+		headers = parseSipMessage("""OPTIONS sip:foo SIP/2.0
+			f: test
+			v: SIP/2.0/UDP proxyA.domain
+			t: foo
+			v: SIP/2.0/UDP proxyB.domain
+			l:0""")[2]
+
+		assert_equals(headers["from"], "test")
+		assert_equals(headers["to"], "foo")
+		assert_equals(headers["via"][0], "SIP/2.0/UDP proxyA.domain")
+		assert_equals(headers["via"][1], "SIP/2.0/UDP proxyB.domain")
+		assert_equals(headers["content-length"], "0")
 
