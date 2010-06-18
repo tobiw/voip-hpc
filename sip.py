@@ -267,7 +267,7 @@ def parseSipMessage(msg):
 	# Return message type, header dictionary, and body string
 	return (msgType, firstLine, headers, body)
 
-class sipsession:
+class SipSession:
 	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
 	sipConnection = None
 
@@ -301,7 +301,7 @@ class sipsession:
 		sipsession.sipConnection.sendto(s.encode('utf-8'),
 				(self.__address, self.__port))
 
-class sip(connection):
+class Sip(connection):
 	"""Only UDP connections are supported at the moment"""
 	def __init__(self):
 		connection.__init__(self, 'udp')
