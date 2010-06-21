@@ -310,14 +310,15 @@ class SipSession:
 			self.__state = SipSession.ACTIVE_SESSION
 
 	def handle_BYE(self, headers, body):
-		# Close RTP stream channel
-		self.__rtpStream.close()
+		# Only close down RTP stream if session is active
+		if self.__state == SipSession.ACTIVE_SESSION:
+			self.__rtpStream.close()
 
 		# A BYE ends the session immediately
 		self.__state = SipSession.NO_SESSION
 
 		# Send OK response to other client
-		self.send("SIP/2.0 200 OK\n")
+		self.send("SIP/2.0 200 OK")
 
 	def send(self, s):
 		logger.debug("SIP session: sending to ({},{})".format(
@@ -418,7 +419,7 @@ class Sip(connection):
 		# To establish connection: send '200 OK'
 		callId = headers["call-id"]
 		newSession = SipSession(conInfo, callId, rtpPort)
-		newSession.send("SIP/2.0 200 OK\n")
+		newSession.send("SIP/2.0 200 OK")
 
 		# Store session object in sessions dictionary
 		self.__sessions[callId] = newSession
