@@ -192,7 +192,7 @@ def parseSipMessage(msg):
 
 	# Split request/status line plus headers and body: we don't care about the
 	# body in the SIP parser
-	parts = msg.split("\n\n")
+	parts = msg.split("\n\n", 1)
 	if len(parts) < 1:
 		logger.error("Message too short")
 		raise SipParsingError("Message too short")
