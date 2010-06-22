@@ -76,7 +76,7 @@ def parseSdpMessage(msg):
 		lines = msg.split("\n")
 		for line in lines:
 			# Remove leading and trailing whitespaces from line
-			line = line.strip(' ')
+			line = line.strip('\n\r\t ')
 
 			# Get first two characters of line and check for "type="
 			if len(line) < 2:
