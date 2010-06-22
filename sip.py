@@ -173,6 +173,7 @@ shortHeaders = {"call-id": "i",
                 "subject": "s",
                 "to": "t",
                 "via": "v",
+				"cseq": "cseq"
                 }
 
 longHeaders = {}
@@ -395,6 +396,13 @@ class Sip(connection):
 		logger.info("Received INVITE")
 		for k, v in headers.items():
 			logger.info("SIP header {}: {}".format(k, v))
+
+		# Header has to define content-type: application/sdp if body contains
+		# SDP message
+		if "content-type" not in headers:
+			if headers["contant-type"] != "application/sdp":
+				logger.error("INVITE without SDP message: exit")
+				return
 
 		# Check for SDP body
 		if not body:
