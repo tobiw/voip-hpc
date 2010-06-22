@@ -82,3 +82,15 @@ class TestSdpMessageParser:
 		sessionDescription, _ = parseSdpMessage(
 			"v=0\no=foo1\ns=test\ni=test\no=foo2\nt=12345\n")
 		assert_equals(sessionDescription["o"], "foo2")
+
+	def test_stripping(self):
+		"""Test for correct stripping of whitespaces from SDP lines"""
+		sessionDescription, mediaDescriptions = parseSdpMessage(
+			"v=0\n\t\t o=1 2 3 4 5 6\n   s=Subject  \t\ni= Info \n" + \
+			" \t  m=audio 41000 RTP/AVP 0\t  \t")
+
+		assert_equals(sessionDescription["v"], "0")
+		assert_equals(sessionDescription["o"], "1 2 3 4 5 6")
+		assert_equals(sessionDescription["s"], "Subject")
+		assert_equals(sessionDescription["i"], "Info")
+		assert_equals(mediaDescriptions[0]["m"], "audio 41000 RTP/AVP 0")
