@@ -274,13 +274,31 @@ class RtpUdpStream(connection):
 		self.__address = address
 		self.__port = port
 
+		# TODO: Using the RTP port number as an identifier might be a bad idea
+		streamDumpFile = "stream_{}.rtpdump".format(port)
+
+		try:
+			self.__streamDump = open(streamDumpFile, "wb")
+		except IOError as e:
+			logger.error("Could not open stream dump file: {}".format(e))
+
 		logger.debug("Created RTP channel on port {}".format(port))
 
-	def handle_read(self):
-		pass
+	def close(self):
+		self.__streamDump.close()
+		connection.close(self)
 
-	def handle_write(self):
-		pass
+	def writable(self):
+		# Nothing to write (doesn't speak to the connected client)
+		return False
+
+	def handle_read(self):
+		# Receive UDP data
+		data, conInfo = self.recvfrom(1024)
+
+		# Write data to disk
+		# TODO: Make sure this cannot cause DoS
+		self.__streamDump.write(data)
 
 class SipSession:
 	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
