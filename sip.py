@@ -301,7 +301,7 @@ class RtpUdpStream(connection):
 		# TODO: Make sure this cannot cause DoS
 		self.__streamDump.write(data)
 
-class SipSession:
+class SipSession(object):
 	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
 	sipConnection = None
 

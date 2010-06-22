@@ -24,7 +24,7 @@ from nose.tools import assert_equals, raises
 
 from sdp import parseSdpMessage, SdpParsingError
 
-class TestSdpMessageParser:
+class TestSdpMessageParser(object):
 	def test_correct_parsing(self):
 		"""Test normal SDP message parsing for correctness"""
 		msg = "v=0\no=Foo 123 456 IN IP4 1.1.1.1\ns=SDP test\n" + \

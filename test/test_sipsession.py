@@ -30,7 +30,7 @@ from sip import SipSession, RtpUdpStream, logger
 # Set logger to _not_ print debug and info messages
 logger.setLevel(logging.ERROR)
 
-class TestSipSession:
+class TestSipSession(object):
 	@classmethod
 	def setUpClass(self):
 		# Create main connection for sending data (mock for Sip class)
