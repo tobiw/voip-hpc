@@ -269,39 +269,73 @@ def parseSipMessage(msg):
 	return (msgType, firstLine, headers, body)
 
 class RtpUdpStream(connection):
+	"""RTP stream that can send data and writes the whole conversation to a
+	file"""
 	def __init__(self, address, port):
 		connection.__init__(self, 'udp')
 
+		# The address and port of the remote host
 		self.__address = address
 		self.__port = port
 
-		# TODO: Using the RTP port number as an identifier might be a bad idea
+		# Send byte buffer
+		self.__sendBuffer = b''
+
+		# TODO: Using the remote RTP port number as an identifier might be a bad
+		# idea
 		streamDumpFile = "stream_{}.rtpdump".format(port)
 
+		# Catch IO errors
 		try:
 			self.__streamDump = open(streamDumpFile, "wb")
 		except IOError as e:
 			logger.error("Could not open stream dump file: {}".format(e))
+			self.__streamDump = None
 
 		logger.debug("Created RTP channel on port {}".format(port))
 
-	def close(self):
-		self.__streamDump.close()
-		connection.close(self)
-
 	def writable(self):
-		# Nothing to write (doesn't speak to the connected client)
-		return False
+		return len(self.__sendBuffer) > 0
+
+	def handle_close(self):
+		self.close()
 
 	def handle_read(self):
-		# Receive UDP data
-		data, conInfo = self.recvfrom(1024)
+		# Don't have to get address and port because they're already known since
+		# __init__
+		data, _ = self.recvfrom(1024)
 
 		# Write data to disk
 		# TODO: Make sure this cannot cause DoS
-		self.__streamDump.write(data)
+		if self.__streamDump:
+			self.__streamDump.write(data)
+
+	def handle_write(self):
+		# Because of the writable function, handle_write will only be called if
+		# there is data in the send buffer
+		bytesSent = self.sendto(self.__sendBuffer)
+
+		# Write the sent part of the buffer to the stream dump file
+		# TODO: separate inbound and outbound traffic?
+		if self.__streamDump:
+			self.__streamDump.write(self.__sendBuffer[:bytesSend])
+
+		# Shift sending window for next send or handle_write operation
+		self.__sendBuffer = self.__sendBuffer[bytesSend:]
+
+	def send(self, msg):
+		# Append to send buffer, handle_write will take care of socket operation
+		self.__sendBuffer += msg.encode('utf-8')
+
+	def close(self):
+		if self.__streamDump:
+			self.__streamDump.close()
+
+		connection.close()
 
 class SipSession(object):
+	"""Usually, a new SipSession instance is created when the SIP server
+	receives an INVITE message"""
 	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
 	sipConnection = None
 
@@ -309,11 +343,24 @@ class SipSession(object):
 		if not SipSession.sipConnection:
 			logger.error("SIP connection class variable not set")
 
+		# Store incoming information of the remote host
 		self.__callId = callId
 		self.__state = SipSession.SESSION_SETUP
-		self.__address = conInfo[0]
-		self.__port = conInfo[1]
-		self.__rtpPort = rtpPort
+		self.__remoteAddress = conInfo[0]
+		self.__remoteSipPort = conInfo[1]
+		self.__remoteRtpPort = rtpPort
+
+		# Create RTP stream instance and pass address and port of listening
+		# remote RTP host
+		self.__rtpStream = RtpUdpStream(self.__remoteAddress,
+			self.__remoteRtpPort)
+
+		# Send our RTP port to the remote host as a 200 OK response to the
+		# remote host's INVITE request
+		localRtpPort = self.__rtpStream.getsockname()[1]
+		self.send("SIP/2.0 200 OK\nContent-Type: application/sdp\n\n" +
+			"v=0\no=Honeypot 0 0 IN IP4 localhost\nt=0 0\n" +
+			"m=audio {} RTP/AVP 0".format(localRtpPort))
 
 	def handle_ACK(self, headers, body):
 		if self.__state == SipSession.SESSION_SETUP:
@@ -323,7 +370,8 @@ class SipSession(object):
 				self.__callId))
 
 			# Create RTP stream channel
-			self.__rtpStream = RtpUdpStream(self.__address, self.__rtpPort)
+			self.__rtpStream = RtpUdpStream(self.__remoteAddress,
+				self.__remoteRtpPort)
 
 			# Set current state to active (ready for multimedia stream)
 			self.__state = SipSession.ACTIVE_SESSION
@@ -343,7 +391,7 @@ class SipSession(object):
 		logger.debug("SIP session: sending to ({},{})".format(
 			self.__address, self.__port))
 		SipSession.sipConnection.sendto(s.encode('utf-8'),
-				(self.__address, self.__port))
+				(self.__remoteAddress, self.__remoteSipPort))
 
 class Sip(connection):
 	"""Only UDP connections are supported at the moment"""
@@ -442,10 +490,9 @@ class Sip(connection):
 
 		rtpPort = mediaDescriptionParts[1]
 
-		# To establish connection: send '200 OK'
+		# Establish a new SIP session
 		callId = headers["call-id"]
 		newSession = SipSession(conInfo, callId, rtpPort)
-		newSession.send("SIP/2.0 200 OK")
 
 		# Store session object in sessions dictionary
 		self.__sessions[callId] = newSession
