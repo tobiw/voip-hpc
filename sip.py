@@ -331,7 +331,7 @@ class RtpUdpStream(connection):
 		if self.__streamDump:
 			self.__streamDump.close()
 
-		connection.close()
+		connection.close(self)
 
 class SipSession(object):
 	"""Usually, a new SipSession instance is created when the SIP server
@@ -389,9 +389,9 @@ class SipSession(object):
 
 	def send(self, s):
 		logger.debug("SIP session: sending to ({},{})".format(
-			self.__address, self.__port))
+			self.__remoteAddress, self.__remoteSipPort))
 		SipSession.sipConnection.sendto(s.encode('utf-8'),
-				(self.__remoteAddress, self.__remoteSipPort))
+			(self.__remoteAddress, self.__remoteSipPort))
 
 class Sip(connection):
 	"""Only UDP connections are supported at the moment"""
