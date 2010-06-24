@@ -23,10 +23,21 @@
 import threading
 import asyncore
 import socket
+import sys
 import os
 from time import sleep
 
-from sip import Sip
+# Make sure we're in the project's root directory
+if os.path.split(os.path.abspath("."))[-1] == "test":
+	sys.path.insert(0, os.path.abspath(".."))
+else:
+	sys.path.insert(0, os.path.abspath("."))
+
+print(sys.path)
+
+# Manually import module from parent directory
+sip = __import__("sip")
+del sys.path[0]
 
 class VoipClient:
 	def __init__(self):
@@ -113,7 +124,7 @@ class ClientThread(threading.Thread):
 		print("Press Ctrl-C to exit the Honeypot")
 
 # Create Honeypot
-s = Sip()
+s = sip.Sip()
 s.bind(('localhost', 5060))
 
 # Create client as a thread
