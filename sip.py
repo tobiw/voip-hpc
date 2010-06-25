@@ -26,6 +26,8 @@
 ################################################################################
 
 import logging
+import time
+import random
 
 from connection import connection
 from sdp import parseSdpMessage, SdpParsingError
@@ -281,9 +283,11 @@ class RtpUdpStream(connection):
 		# Send byte buffer
 		self.__sendBuffer = b''
 
-		# TODO: Using the remote RTP port number as an identifier might be a bad
-		# idea
-		streamDumpFile = "stream_{}.rtpdump".format(port)
+		# Create a stream dump file with date and time and random ID in case of
+		# flooding attacks
+		dumpDateTime = time.strftime("%Y%m%d_%H:%M:%S")
+		dumpId = random.randint(1000, 9999)
+		streamDumpFile = "stream_{0}_{1}.rtpdump".format(dumpDateTime, dumpId)
 
 		# Catch IO errors
 		try:
