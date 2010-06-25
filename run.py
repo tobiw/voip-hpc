@@ -25,7 +25,7 @@ import sip
 
 if __name__ == '__main__':
 	s = sip.Sip()
-	s.bind(('localhost', 1111))
+	s.bind(('localhost', 5060))
 
 	try:
 		asyncore.loop()

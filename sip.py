@@ -175,7 +175,10 @@ shortHeaders = {"call-id": "i",
                 "subject": "s",
                 "to": "t",
                 "via": "v",
-				"cseq": "cseq"
+				"cseq": "cseq",
+				"accept": "accept",
+				"user-agent": "user-agent",
+				"max-forwards": "max-forwards"
                 }
 
 longHeaders = {}
@@ -317,7 +320,7 @@ class RtpUdpStream(connection):
 	def handle_write(self):
 		# Because of the writable function, handle_write will only be called if
 		# there is data in the send buffer
-		bytesSent = self.sendto(self.__sendBuffer)
+		bytesSent = self.send(self.__sendBuffer)
 
 		# Write the sent part of the buffer to the stream dump file
 		# TODO: separate inbound and outbound traffic?
@@ -362,7 +365,8 @@ class SipSession(object):
 		# Send our RTP port to the remote host as a 200 OK response to the
 		# remote host's INVITE request
 		localRtpPort = self.__rtpStream.getsockname()[1]
-		self.send("SIP/2.0 200 OK\nContent-Type: application/sdp\n\n" +
+		SipSession.sipConnection.send(
+			"SIP/2.0 200 OK\nContent-Type: application/sdp\n\n" +
 			"v=0\no=Honeypot 0 0 IN IP4 localhost\nt=0 0\n" +
 			"m=audio {} RTP/AVP 0".format(localRtpPort))
 
@@ -389,13 +393,7 @@ class SipSession(object):
 		self.__state = SipSession.NO_SESSION
 
 		# Send OK response to other client
-		self.send("SIP/2.0 200 OK")
-
-	def send(self, s):
-		logger.debug("SIP session: sending to ({},{})".format(
-			self.__remoteAddress, self.__remoteSipPort))
-		SipSession.sipConnection.sendto(s.encode('utf-8'),
-			(self.__remoteAddress, self.__remoteSipPort))
+		SipSession.sipConnection.send("SIP/2.0 200 OK")
 
 class Sip(connection):
 	"""Only UDP connections are supported at the moment"""
@@ -408,10 +406,18 @@ class Sip(connection):
 		# Dictionary with SIP sessions (key is call-id)
 		self.__sessions = {}
 
+	def send(self, s):
+		logger.debug("sending to ({}:{})".format(
+			self.__remoteAddress, self.__remoteSipPort))
+		self.sendto(s.encode('utf-8'),
+			(self.__remoteAddress, self.__remoteSipPort))
+
 	def handle_read(self):
 		"""Callback for handling incoming SIP traffic"""
 		# TODO: Handle long messages
 		data, conInfo = self.recvfrom(1024)
+		self.__remoteAddress = conInfo[0]
+		self.__remoteSipPort = conInfo[1]
 
 		# Get byte data and decode to string
 		data = data.decode("utf-8")
@@ -424,7 +430,7 @@ class Sip(connection):
 			return
 
 		if msgType == 'INVITE':
-			self.sip_INVITE(conInfo, firstLine, headers, body)
+			self.sip_INVITE(firstLine, headers, body)
 		elif msgType == 'ACK':
 			self.sip_ACK(firstLine, headers, body)
 		elif msgType == 'OPTIONS':
@@ -443,7 +449,7 @@ class Sip(connection):
 			logger.error("Error: unknown header")
 
 	# SIP message type handlers
-	def sip_INVITE(self, conInfo, requestLine, headers, body):
+	def sip_INVITE(self, requestLine, headers, body):
 		# Print SIP header
 		logger.info("Received INVITE")
 		for k, v in headers.items():
@@ -451,8 +457,17 @@ class Sip(connection):
 
 		# Header has to define content-type: application/sdp if body contains
 		# SDP message
-		if "content-type" not in headers:
-			if headers["contant-type"] != "application/sdp":
+		if "content-type" not in headers and "accept" not in headers:
+			logger.error("INVITE without specified content: exit")
+			return
+
+		if "content-type" in headers:
+			if headers["content-type"] != "application/sdp":
+				logger.error("INVITE without SDP message: exit")
+				return
+
+		if "accept" in headers:
+			if headers["accept"] != "application/sdp":
 				logger.error("INVITE without SDP message: exit")
 				return
 
@@ -496,7 +511,8 @@ class Sip(connection):
 
 		# Establish a new SIP session
 		callId = headers["call-id"]
-		newSession = SipSession(conInfo, callId, rtpPort)
+		newSession = SipSession((self.__remoteAddress, self.__remoteSipPort),
+			callId, rtpPort)
 
 		# Store session object in sessions dictionary
 		self.__sessions[callId] = newSession
@@ -520,6 +536,7 @@ class Sip(connection):
 
 	def sip_OPTIONS(self, requestLine, headers, body):
 		logger.info("Received OPTIONS")
+		self.send("SIP/2.0 200 OK")
 
 	def sip_BYE(self, requestLine, headers, body):
 		logger.info("Received BYE")
