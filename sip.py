@@ -362,6 +362,11 @@ class SipSession(object):
 		self.__rtpStream = RtpUdpStream(self.__remoteAddress,
 			self.__remoteRtpPort)
 
+		# Send 180 Ringing to make honeypot appear more human-like
+		# TODO: Delay between 180 and 200
+		SipSession.sipConnection.send(
+			"SIP/2.0 180 Ringing")
+
 		# Send our RTP port to the remote host as a 200 OK response to the
 		# remote host's INVITE request
 		localRtpPort = self.__rtpStream.getsockname()[1]
@@ -542,7 +547,21 @@ class Sip(connection):
 
 	def sip_OPTIONS(self, requestLine, headers, body):
 		logger.info("Received OPTIONS")
-		self.send("SIP/2.0 200 OK")
+
+		# Construct OPTIONS response
+		msgLines = []
+		msgLines.append("SIP/2.0 200 OK")
+		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
+		msgLines.append("To: ...")
+		msgLines.append("From: ...")
+		msgLines.append("Call-ID: ...")
+		msgLines.append("CSeq: ... OPTIONS")
+		msgLines.append("Contact: ...[TO]...")
+		msgLines.append("Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REGISTER")
+		msgLines.append("Accept: application/sdp")
+		msgLines.append("Accept-Language: en")
+
+		self.send('\n'.join(msgLines))
 
 	def sip_BYE(self, requestLine, headers, body):
 		logger.info("Received BYE")
