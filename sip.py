@@ -471,6 +471,9 @@ class Sip(connection):
 				logger.error("INVITE without SDP message: exit")
 				return
 
+		if self.__checkForMissingHeaders(headers):
+			return
+
 		# Check for SDP body
 		if not body:
 			logger.error("INVITE without SDP message: exit")
@@ -493,10 +496,6 @@ class Sip(connection):
 		logger.debug(sessionDescription)
 		logger.debug(mediaDescriptions)
 
-		if "call-id" not in headers:
-			logger.error("SIP headers have to include Call-ID: exit")
-			return
-
 		# Get RTP port from SDP media description
 		if len(mediaDescriptions) < 1:
 			logger.error("SDP message has to include a media description: exit")
@@ -509,8 +508,16 @@ class Sip(connection):
 
 		rtpPort = mediaDescriptionParts[1]
 
-		# Establish a new SIP session
+		# Read Call-ID field and create new SipSession instance on first INVITE
+		# request received (remote host might send more than one because of time
+		# outs or because he wants to flood the honeypot)
 		callId = headers["call-id"]
+		if callId in self.__sessions:
+			logger.info("SIP session with Call-ID {} already exists".format(
+				callId))
+			return
+
+		# Establish a new SIP session
 		newSession = SipSession((self.__remoteAddress, self.__remoteSipPort),
 			callId, rtpPort)
 
@@ -520,8 +527,7 @@ class Sip(connection):
 	def sip_ACK(self, requestLine, headers, body):
 		logger.info("Received ACK")
 
-		if "call-id" not in headers:
-			logger.error("SIP headers have to include Call-ID: exit")
+		if self.__checkForMissingHeaders(headers):
 			return
 
 		# Get SIP session for given Call-ID
@@ -541,8 +547,7 @@ class Sip(connection):
 	def sip_BYE(self, requestLine, headers, body):
 		logger.info("Received BYE")
 
-		if "call-id" not in headers:
-			logger.error("SIP headers have to include Call-ID: exit")
+		if self.__checkForMissingHeaders(headers):
 			return
 
 		# Get SIP session for given Call-ID
@@ -563,3 +568,19 @@ class Sip(connection):
 
 	def sip_RESPONSE(self, statusLine, headers, body):
 		logger.info("Received a response")
+
+	def __checkForMissingHeaders(self, headers, mandatoryHeaders,
+		standardHeaders=["to", "from", "call-id", "cseq", "contact"]):
+		"""
+		Check for specific missing headers given as a list in the second
+		argument are present as keys in the dictionary of headers.
+		A list of common mandatory standard headers can be given as a third
+		argument, otherwise it defaults to To, From, Call-ID, CSeq, and Contact.
+		"""
+		headerMissing = False
+		for m in mandatoryHeaders + standardHeaders:
+			if m not in headers:
+				logger.warning("Mandatory header {} not in message".format(m))
+				headerMissing = True
+
+		return headerMissing
