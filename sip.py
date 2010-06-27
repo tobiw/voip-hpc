@@ -588,16 +588,19 @@ class Sip(connection):
 	def sip_RESPONSE(self, statusLine, headers, body):
 		logger.info("Received a response")
 
-	def __checkForMissingHeaders(self, headers, mandatoryHeaders,
-		standardHeaders=["to", "from", "call-id", "cseq", "contact"]):
+	def __checkForMissingHeaders(self, headers, mandatoryHeaders=[]):
 		"""
 		Check for specific missing headers given as a list in the second
 		argument are present as keys in the dictionary of headers.
-		A list of common mandatory standard headers can be given as a third
-		argument, otherwise it defaults to To, From, Call-ID, CSeq, and Contact.
+		If list of mandatory headers is omitted, a set of common standard
+		headers is used: To, From, Call-ID, CSeq, and Contact.
 		"""
+		if not mandatoryHeaders:
+			mandatoryHeaders = ["to", "from", "call-id", "cseq", "contact"]
+
 		headerMissing = False
-		for m in mandatoryHeaders + standardHeaders:
+
+		for m in mandatoryHeaders:
 			if m not in headers:
 				logger.warning("Mandatory header {} not in message".format(m))
 				headerMissing = True
