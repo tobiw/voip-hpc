@@ -99,6 +99,10 @@ class ClientThread(threading.Thread):
 		print("CLIENT: Sending INVITE")
 		c.invite()
 
+		# Expecting a 180 Ringing first
+		data = c.recv()
+		assert data.split('\n')[0] == "SIP/2.0 180 Ringing"
+
 		# Expecting a 200 OK with the server's SDP message
 		data = c.recv()
 		assert data.split('\n')[0] == "SIP/2.0 200 OK"
