@@ -364,16 +364,35 @@ class SipSession(object):
 
 		# Send 180 Ringing to make honeypot appear more human-like
 		# TODO: Delay between 180 and 200
-		SipSession.sipConnection.send(
-			"SIP/2.0 180 Ringing")
+		# TODO: Store/generate values for To, From, Contact, etc. automatically
+		msgLines = []
+		msgLines.append("SIP/2.0 180 Ringing")
+		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
+		msgLines.append("To: ...")
+		msgLines.append("From: ...")
+		msgLines.append("Call-ID: {}".format(self.__callId))
+		msgLines.append("CSeq: ... INVITE")
+		msgLines.append("Contact: ...[TO]...")
+		SipSession.sipConnection.send('\n'.join(msgLines))
 
 		# Send our RTP port to the remote host as a 200 OK response to the
 		# remote host's INVITE request
 		localRtpPort = self.__rtpStream.getsockname()[1]
-		SipSession.sipConnection.send(
-			"SIP/2.0 200 OK\nContent-Type: application/sdp\n\n" +
-			"v=0\no=Honeypot 0 0 IN IP4 localhost\nt=0 0\n" +
-			"m=audio {} RTP/AVP 0".format(localRtpPort))
+		
+		msgLines = []
+		msgLines.append("SIP/2.0 200 OK")
+		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
+		msgLines.append("To: ...")
+		msgLines.append("From: ...")
+		msgLines.append("Call-ID: {}".format(self.__callId))
+		msgLines.append("CSeq: ... INVITE")
+		msgLines.append("Contact: ...[TO]...")
+		msgLines.append("Content-Type: application/sdp")
+		msgLines.append("\nv=0")
+		msgLines.append("o=... 0 0 IN IP4 localhost")
+		msgLines.append("t=0 0")
+		msgLines.append("m=audio {} RTP/AVP 0".format(localRtpPort))
+		SipSession.sipConnection.send('\n'.join(msgLines))
 
 	def handle_ACK(self, headers, body):
 		if self.__state == SipSession.SESSION_SETUP:
@@ -398,7 +417,15 @@ class SipSession(object):
 		self.__state = SipSession.NO_SESSION
 
 		# Send OK response to other client
-		SipSession.sipConnection.send("SIP/2.0 200 OK")
+		msgLines = []
+		msgLines.append("SIP/2.0 200 OK")
+		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
+		msgLines.append("To: ...")
+		msgLines.append("From: ...")
+		msgLines.append("Call-ID: {}".format(self.__callId))
+		msgLines.append("CSeq: ... BYE")
+		msgLines.append("Contact: ...[TO]...")
+		SipSession.sipConnection.send('\n'.join(msgLines))
 
 class Sip(connection):
 	"""Only UDP connections are supported at the moment"""
