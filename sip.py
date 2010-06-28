@@ -357,6 +357,14 @@ class SipSession(object):
 		self.__remoteSipPort = conInfo[1]
 		self.__remoteRtpPort = rtpPort
 
+		# Generate static values for SIP messages
+		# TODO: Export some of the values to a higher level or config file
+		self.__sipIp = "0.0.0.0"
+		self.__sipPort = "5060"
+		self.__sipFrom = "100 <sip:100@{}>".format(self.__sipIp)
+		self.__sipVia = "SIP/2.0/UDP {}:{}".format(self.__sipIp, self.__sipPort)
+		self.__sipUserAgent = "Softphone"
+
 		# Create RTP stream instance and pass address and port of listening
 		# remote RTP host
 		self.__rtpStream = RtpUdpStream(self.__remoteAddress,
@@ -364,15 +372,16 @@ class SipSession(object):
 
 		# Send 180 Ringing to make honeypot appear more human-like
 		# TODO: Delay between 180 and 200
-		# TODO: Store/generate values for To, From, Contact, etc. automatically
 		msgLines = []
 		msgLines.append("SIP/2.0 180 Ringing")
-		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
-		msgLines.append("To: ...")
-		msgLines.append("From: ...")
+		msgLines.append("Via: " + self.__sipVia)
+		msgLines.append("Max-Forwards: 70")
+		msgLines.append("To: " + self.__sipTo)
+		msgLines.append("From: " + self.__sipFrom)
 		msgLines.append("Call-ID: {}".format(self.__callId))
-		msgLines.append("CSeq: ... INVITE")
-		msgLines.append("Contact: ...[TO]...")
+		msgLines.append("CSeq: 1 INVITE")
+		msgLines.append("Contact: " + self.__sipFrom)
+		msgLines.append("User-Agent: " + self.__sipUserAgent)
 		SipSession.sipConnection.send('\n'.join(msgLines))
 
 		# Send our RTP port to the remote host as a 200 OK response to the
@@ -381,12 +390,14 @@ class SipSession(object):
 		
 		msgLines = []
 		msgLines.append("SIP/2.0 200 OK")
-		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
-		msgLines.append("To: ...")
-		msgLines.append("From: ...")
+		msgLines.append("Via: " + self.__sipVia)
+		msgLines.append("Max-Forwards: 70")
+		msgLines.append("To: " + self.__sipTo)
+		msgLines.append("From: " + self.__sipFrom)
 		msgLines.append("Call-ID: {}".format(self.__callId))
-		msgLines.append("CSeq: ... INVITE")
-		msgLines.append("Contact: ...[TO]...")
+		msgLines.append("CSeq: 1 INVITE")
+		msgLines.append("Contact: " + self.__sipFrom)
+		msgLines.append("User-Agent: " + self.__sipUserAgent)
 		msgLines.append("Content-Type: application/sdp")
 		msgLines.append("\nv=0")
 		msgLines.append("o=... 0 0 IN IP4 localhost")
@@ -419,12 +430,14 @@ class SipSession(object):
 		# Send OK response to other client
 		msgLines = []
 		msgLines.append("SIP/2.0 200 OK")
-		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
-		msgLines.append("To: ...")
-		msgLines.append("From: ...")
+		msgLines.append("Via: " + self.__sipVia)
+		msgLines.append("Max-Forwards: 70")
+		msgLines.append("To: " + self.__sipTo)
+		msgLines.append("From: " + self.__sipFrom)
 		msgLines.append("Call-ID: {}".format(self.__callId))
-		msgLines.append("CSeq: ... BYE")
-		msgLines.append("Contact: ...[TO]...")
+		msgLines.append("CSeq: 1 BYE")
+		msgLines.append("Contact: " + self.__sipFrom)
+		msgLines.append("User-Agent: " + self.__sipUserAgent)
 		SipSession.sipConnection.send('\n'.join(msgLines))
 
 class Sip(connection):
