@@ -72,6 +72,7 @@ class VoipClient:
 			Call-ID: {callId}
 			CSeq: 1 INVITE
 			Contact: socketHelper
+			Accept: application/sdp
 			Content-Type: application/sdp
 			Content-Length: {sdp}""".format(
 				callId=self.__callId,

@@ -350,12 +350,12 @@ class SipSession(object):
 	NO_SESSION, SESSION_SETUP, ACTIVE_SESSION, SESSION_TEARDOWN = range(4)
 	sipConnection = None
 
-	def __init__(self, conInfo, callId, rtpPort):
+	def __init__(self, conInfo, rtpPort, inviteHeaders):
 		if not SipSession.sipConnection:
 			logger.error("SIP connection class variable not set")
 
 		# Store incoming information of the remote host
-		self.__callId = callId
+		self.__inviteHeaders = inviteHeaders
 		self.__state = SipSession.SESSION_SETUP
 		self.__remoteAddress = conInfo[0]
 		self.__remoteSipPort = conInfo[1]
@@ -363,7 +363,7 @@ class SipSession(object):
 
 		# Generate static values for SIP messages
 		global g_sipconfig
-		self.__sipTo = "... <...@...>"
+		self.__sipTo = inviteHeaders['from']
 		self.__sipFrom = "{0} <sip:{0}@{1}>".format(g_sipconfig['user'],
 			g_sipconfig['ip'])
 		self.__sipVia = "SIP/2.0/UDP {}:{}".format(g_sipconfig['ip'],
@@ -382,7 +382,7 @@ class SipSession(object):
 		msgLines.append("Max-Forwards: 70")
 		msgLines.append("To: " + self.__sipTo)
 		msgLines.append("From: " + self.__sipFrom)
-		msgLines.append("Call-ID: {}".format(self.__callId))
+		msgLines.append("Call-ID: {}".format(self.__inviteHeaders['call-id']))
 		msgLines.append("CSeq: 1 INVITE")
 		msgLines.append("Contact: " + self.__sipFrom)
 		msgLines.append("User-Agent: " + g_sipconfig['useragent'])
@@ -398,7 +398,7 @@ class SipSession(object):
 		msgLines.append("Max-Forwards: 70")
 		msgLines.append("To: " + self.__sipTo)
 		msgLines.append("From: " + self.__sipFrom)
-		msgLines.append("Call-ID: {}".format(self.__callId))
+		msgLines.append("Call-ID: {}".format(self.__inviteHeaders['call-id']))
 		msgLines.append("CSeq: 1 INVITE")
 		msgLines.append("Contact: " + self.__sipFrom)
 		msgLines.append("User-Agent: " + g_sipconfig['useragent'])
@@ -414,7 +414,7 @@ class SipSession(object):
 			logger.debug(
 				"Waiting for ACK after INVITE -> got ACK -> active session")
 			logger.info("Connection accepted (session {})".format(
-				self.__callId))
+				self.__inviteHeaders['call-id']))
 
 			# Create RTP stream channel
 			self.__rtpStream = RtpUdpStream(self.__remoteAddress,
@@ -440,7 +440,7 @@ class SipSession(object):
 		msgLines.append("Max-Forwards: 70")
 		msgLines.append("To: " + self.__sipTo)
 		msgLines.append("From: " + self.__sipFrom)
-		msgLines.append("Call-ID: {}".format(self.__callId))
+		msgLines.append("Call-ID: {}".format(self.__inviteHeaders['call-id']))
 		msgLines.append("CSeq: 1 BYE")
 		msgLines.append("Contact: " + self.__sipFrom)
 		msgLines.append("User-Agent: " + g_sipconfig['useragent'])
@@ -506,23 +506,18 @@ class Sip(connection):
 		for k, v in headers.items():
 			logger.info("SIP header {}: {}".format(k, v))
 
-		# Header has to define content-type: application/sdp if body contains
-		# SDP message
-		if "content-type" not in headers and "accept" not in headers:
-			logger.error("INVITE without specified content: exit")
+		if self.__checkForMissingHeaders(headers, ["accept", "content-type"]):
 			return
 
-		if "content-type" in headers:
-			if headers["content-type"] != "application/sdp":
-				logger.error("INVITE without SDP message: exit")
-				return
+		# Header has to define Content-Type: application/sdp if body contains
+		# SDP message. Also, Accept has to be set to sdp so that we can send
+		# back a SDP response.
+		if headers["content-type"] != "application/sdp":
+			logger.error("INVITE without SDP message: exit")
+			return
 
-		if "accept" in headers:
-			if headers["accept"] != "application/sdp":
-				logger.error("INVITE without SDP message: exit")
-				return
-
-		if self.__checkForMissingHeaders(headers):
+		if headers["accept"] != "application/sdp":
+			logger.error("INVITE without SDP message: exit")
 			return
 
 		# Check for SDP body
@@ -570,7 +565,7 @@ class Sip(connection):
 
 		# Establish a new SIP session
 		newSession = SipSession((self.__remoteAddress, self.__remoteSipPort),
-			callId, rtpPort)
+			rtpPort, headers)
 
 		# Store session object in sessions dictionary
 		self.__sessions[callId] = newSession
