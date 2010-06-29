@@ -31,6 +31,10 @@ import random
 
 from connection import connection
 from sdp import parseSdpMessage, SdpParsingError
+from config import g_config
+
+# Shortcut to sip config
+g_sipconfig = g_config['modules']['python']['sip']
 
 # Setup logging mechanism
 logger = logging.getLogger('sip')
@@ -358,12 +362,12 @@ class SipSession(object):
 		self.__remoteRtpPort = rtpPort
 
 		# Generate static values for SIP messages
-		# TODO: Export some of the values to a higher level or config file
-		self.__sipIp = "0.0.0.0"
-		self.__sipPort = "5060"
-		self.__sipFrom = "100 <sip:100@{}>".format(self.__sipIp)
-		self.__sipVia = "SIP/2.0/UDP {}:{}".format(self.__sipIp, self.__sipPort)
-		self.__sipUserAgent = "Softphone"
+		global g_sipconfig
+		self.__sipTo = "... <...@...>"
+		self.__sipFrom = "{0} <sip:{0}@{1}>".format(g_sipconfig['user'],
+			g_sipconfig['ip'])
+		self.__sipVia = "SIP/2.0/UDP {}:{}".format(g_sipconfig['ip'],
+			g_sipconfig['port'])
 
 		# Create RTP stream instance and pass address and port of listening
 		# remote RTP host
@@ -381,7 +385,7 @@ class SipSession(object):
 		msgLines.append("Call-ID: {}".format(self.__callId))
 		msgLines.append("CSeq: 1 INVITE")
 		msgLines.append("Contact: " + self.__sipFrom)
-		msgLines.append("User-Agent: " + self.__sipUserAgent)
+		msgLines.append("User-Agent: " + g_sipconfig['useragent'])
 		SipSession.sipConnection.send('\n'.join(msgLines))
 
 		# Send our RTP port to the remote host as a 200 OK response to the
@@ -397,7 +401,7 @@ class SipSession(object):
 		msgLines.append("Call-ID: {}".format(self.__callId))
 		msgLines.append("CSeq: 1 INVITE")
 		msgLines.append("Contact: " + self.__sipFrom)
-		msgLines.append("User-Agent: " + self.__sipUserAgent)
+		msgLines.append("User-Agent: " + g_sipconfig['useragent'])
 		msgLines.append("Content-Type: application/sdp")
 		msgLines.append("\nv=0")
 		msgLines.append("o=... 0 0 IN IP4 localhost")
@@ -420,6 +424,8 @@ class SipSession(object):
 			self.__state = SipSession.ACTIVE_SESSION
 
 	def handle_BYE(self, headers, body):
+		global g_sipconfig
+
 		# Only close down RTP stream if session is active
 		if self.__state == SipSession.ACTIVE_SESSION:
 			self.__rtpStream.close()
@@ -437,7 +443,7 @@ class SipSession(object):
 		msgLines.append("Call-ID: {}".format(self.__callId))
 		msgLines.append("CSeq: 1 BYE")
 		msgLines.append("Contact: " + self.__sipFrom)
-		msgLines.append("User-Agent: " + self.__sipUserAgent)
+		msgLines.append("User-Agent: " + g_sipconfig['useragent'])
 		SipSession.sipConnection.send('\n'.join(msgLines))
 
 class Sip(connection):

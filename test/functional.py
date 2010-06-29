@@ -26,6 +26,9 @@ import socket
 import sys
 import os
 from time import sleep
+from random import randint
+
+from nose.tools import assert_equals
 
 # Make sure we're in the project's root directory
 if os.path.split(os.path.abspath("."))[-1] == "test":
@@ -33,10 +36,9 @@ if os.path.split(os.path.abspath("."))[-1] == "test":
 else:
 	sys.path.insert(0, os.path.abspath("."))
 
-print(sys.path)
-
 # Manually import module from parent directory
 sip = __import__("sip")
+config = __import__("config")
 del sys.path[0]
 
 class VoipClient:
@@ -44,6 +46,7 @@ class VoipClient:
 		self.__s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self.__s.bind(('', 0))
 		self.__port = self.__s.getsockname()[1]
+		self.__callId = randint(1000, 9999)
 
 	def send(self, msg):
 		self.__s.sendto(msg.encode('utf-8'), ('localhost', 5060))
@@ -66,11 +69,13 @@ class VoipClient:
 			Via: SIP/2.0/UDP 1.2.3.4
 			From: sockerHelper
 			To: foo bar
-			Call-ID: 1234
+			Call-ID: {callId}
 			CSeq: 1 INVITE
 			Contact: socketHelper
 			Content-Type: application/sdp
-			Content-Length: {sdp}""".format(sdp=len(sdpMsg))
+			Content-Length: {sdp}""".format(
+				callId=self.__callId,
+				sdp=len(sdpMsg))
 
 		self.send(sipMsg + "\n\n" + sdpMsg)
 
@@ -79,21 +84,39 @@ class VoipClient:
 			Via: SIP/2.0/UDP 1.2.3.4
 			From: sockerHelper
 			To: foo bar
-			Call-ID: 1234
+			Call-ID: {callId}
 			CSeq: 1 ACK
-			Contact: socketHelper""")
+			Contact: socketHelper""".format(
+				callId=self.__callId))
 
 	def bye(self):
 		self.send("""BYE foo SIP/2.0
 			Via: SIP/2.0/UDP 1.2.3.4
 			From: sockerHelper
 			To: foo bar
-			Call-ID: 1234
+			Call-ID: {callId}
 			CSeq: 1 BYE
-			Contact: socketHelper""")
+			Contact: socketHelper""".format(
+				callId=self.__callId))
+
+	def getCallId(self): return self.__callId
 
 class ClientThread(threading.Thread):
 	def run(self):
+		try:
+			self.__run()
+		except AssertionError as e:
+			print("Functional test failed (assertion error)")
+			print(e)
+		except Exception as e:
+			print("Function test failed (unhandled error)")
+			print(e)
+		else:
+			print("Functional test finished successfully")
+
+		print("Press Ctrl-C to exit the Honeypot")
+
+	def __run(self):
 		c = VoipClient()
 
 		print("CLIENT: Sending INVITE")
@@ -101,11 +124,16 @@ class ClientThread(threading.Thread):
 
 		# Expecting a 180 Ringing first
 		data = c.recv()
-		assert data.split('\n')[0] == "SIP/2.0 180 Ringing"
+		assert_equals(data.split('\n')[0], "SIP/2.0 180 Ringing")
 
 		# Expecting a 200 OK with the server's SDP message
 		data = c.recv()
-		assert data.split('\n')[0] == "SIP/2.0 200 OK"
+		data = data.split('\n')
+		assert_equals(data[0], "SIP/2.0 200 OK")
+		assert_equals(data[4][:data[4].find('@')],
+			"From: {0} <sip:{0}".format(
+				config.g_config['modules']['python']['sip']['user']))
+		assert_equals(data[5], "Call-ID: {}".format(c.getCallId()))
 
 		print("CLIENT: Sending ACK")
 		c.ack()
@@ -118,14 +146,11 @@ class ClientThread(threading.Thread):
 
 		# Expecting a 200 OK
 		data = c.recv()
-		assert data.split('\n')[0] == "SIP/2.0 200 OK"
+		assert_equals(data.split('\n')[0], "SIP/2.0 200 OK")
 
 		# Check if stream dump file has been created
 		# This will raise an exception if path doesn't exist
 		os.stat("stream_30123.rtpdump")
-
-		print("Functional test finished successfully")
-		print("Press Ctrl-C to exit the Honeypot")
 
 # Create Honeypot
 s = sip.Sip()
@@ -137,5 +162,9 @@ ClientThread().start()
 try:
 	asyncore.loop()
 except KeyboardInterrupt:
-	s.close()
+	print("Asyncore loop interrupted: exit")
+except Exception as e:
+	print("Unhandled exception")
+	print(e)
 
+s.close()
