@@ -623,6 +623,41 @@ class Sip(connection):
 	def sip_CANCEL(self, requestLine, headers, body):
 		logger.info("Received CANCEL")
 
+		# Check mandatory headers
+		if self.__checkForMissingHeaders(headers):
+			return
+
+		# Get Call-Id and check if there's already a SipSession
+		callId = headers['call-id']
+
+		# Get CSeq to find out which request to cancel
+		cseq = headers['cseq'].split(' ')
+		cseqNumber = cseq[0]
+		cseqMethod = cseq[1]
+
+		if cseqMethod == "INVITE" or cseqMethod == "ACK":
+			# Find SipSession and delete it
+			if callId not in self.__sessions:
+				logger.info(
+					"CANCEL request does not match any existing SIP session")
+				return
+
+			# No RTP connection has been made yet so deleting the session
+			# instance is sufficient
+			del self.__session[callId]
+
+		# Construct CANCEL response
+		msgLines = []
+		msgLines.append("SIP/2.0 200 OK")
+		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
+		msgLines.append("To: ...")
+		msgLines.append("From: ...")
+		msgLines.append("Call-ID: ...")
+		msgLines.append("CSeq: {} {}".format(cseqNumber, cseqMethod))
+		msgLines.append("Contact: ...[TO]...")
+
+		self.send('\n'.join(msgLines))
+
 	def sip_REGISTER(self, requestLine, headers, body):
 		logger.info("Received REGISTER")
 
