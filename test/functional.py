@@ -58,15 +58,15 @@ class VoipClient:
 
 	def invite(self):
 		sdpMsg = """v=0
-			o=socketHelper 5566 7788 IN IP4 1.2.3.4
+			o=socketHelper 5566 7788 IN IP4 127.0.0.1
 			s=SDP Subject
 			i=SDP information
-			c=IN IP4 1.2.3.5
+			c=IN IP4 127.0.0.1
 			t=0 0
 			m=audio 30123 RTP/AVP 0"""
 
 		sipMsg = """INVITE foo SIP/2.0
-			Via: SIP/2.0/UDP 1.2.3.4
+			Via: SIP/2.0/UDP 127.0.0.1
 			From: sockerHelper
 			To: foo bar
 			Call-ID: {callId}
@@ -82,7 +82,7 @@ class VoipClient:
 
 	def ack(self):
 		self.send("""ACK foo SIP/2.0
-			Via: SIP/2.0/UDP 1.2.3.4
+			Via: SIP/2.0/UDP 127.0.0.1
 			From: sockerHelper
 			To: foo bar
 			Call-ID: {callId}
@@ -92,7 +92,7 @@ class VoipClient:
 
 	def bye(self):
 		self.send("""BYE foo SIP/2.0
-			Via: SIP/2.0/UDP 1.2.3.4
+			Via: SIP/2.0/UDP 127.0.0.1
 			From: sockerHelper
 			To: foo bar
 			Call-ID: {callId}
