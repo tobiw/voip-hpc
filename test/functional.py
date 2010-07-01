@@ -80,10 +80,19 @@ class VoipClient:
 
 		self.send(sipMsg + "\n\n" + sdpMsg)
 
+	def options(self):
+		self.send("""OPTIONS foo SIP/2.0
+			Via: SIP/2.0/UDP 127.0.0.1
+			From: socketHelper
+			To: foo bar
+			Call-ID: {callId}
+			CSeq: 1 OPTIONS
+			Contact: socketHelper""")
+
 	def ack(self):
 		self.send("""ACK foo SIP/2.0
 			Via: SIP/2.0/UDP 127.0.0.1
-			From: sockerHelper
+			From: socketHelper
 			To: foo bar
 			Call-ID: {callId}
 			CSeq: 1 ACK
@@ -120,6 +129,22 @@ class ClientThread(threading.Thread):
 	def __run(self):
 		c = VoipClient()
 
+		print("CLIENT: Sending OPTIONS")
+		c.options()
+
+		data = c.recv().split('\n')
+		for d in data:
+			d = d.split(':')
+			if d[0] == "Allow":
+				# Get individual arguments
+				methods = [x.strip(' ') for x in d[1].split(',')]
+				assert "INVITE" in methods
+				assert "OPTIONS" in methods
+				assert "ACK" in methods
+				assert "CANCEL" in methods
+				assert "BYE" in methods
+				assert "REGISTER" not in methods
+
 		print("CLIENT: Sending INVITE")
 		c.invite()
 
@@ -128,8 +153,7 @@ class ClientThread(threading.Thread):
 		assert_equals(data.split('\n')[0], "SIP/2.0 180 Ringing")
 
 		# Expecting a 200 OK with the server's SDP message
-		data = c.recv()
-		data = data.split('\n')
+		data = c.recv().split('\n')
 		assert_equals(data[0], "SIP/2.0 200 OK")
 		assert_equals(data[4][:data[4].find('@')],
 			"From: {0} <sip:{0}".format(
