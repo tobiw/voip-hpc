@@ -590,15 +590,19 @@ class Sip(connection):
 		logger.info("Received OPTIONS")
 
 		# Construct OPTIONS response
+		global g_sipconfig
 		msgLines = []
 		msgLines.append("SIP/2.0 200 OK")
-		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
-		msgLines.append("To: ...")
-		msgLines.append("From: ...")
-		msgLines.append("Call-ID: ...")
-		msgLines.append("CSeq: ... OPTIONS")
-		msgLines.append("Contact: ...[TO]...")
-		msgLines.append("Allow: INVITE, ACK, CANCEL, OPTIONS, BYE, REGISTER")
+		msgLines.append("Via: SIP/2.0/UDP {}:{}".format(g_sipconfig['ip'],
+			g_sipconfig['port']))
+		msgLines.append("To: " + headers['from'])
+		msgLines.append("From: {0} <sip:{0}@{1}>".format(g_sipconfig['user'],
+			g_sipconfig['ip']))
+		msgLines.append("Call-ID: " + headers['call-id'])
+		msgLines.append("CSeq: " + headers['cseq'])
+		msgLines.append("Contact: {0} <sip:{0}@{1}>".format(g_sipconfig['user'],
+			g_sipconfig['ip']))
+		msgLines.append("Allow: INVITE, ACK, CANCEL, OPTIONS, BYE")
 		msgLines.append("Accept: application/sdp")
 		msgLines.append("Accept-Language: en")
 
@@ -646,15 +650,20 @@ class Sip(connection):
 			# instance is sufficient
 			del self.__session[callId]
 
+		
 		# Construct CANCEL response
+		global g_sipconfig
 		msgLines = []
 		msgLines.append("SIP/2.0 200 OK")
-		msgLines.append("Via: SIP/2.0/UDP ...;branch=...")
-		msgLines.append("To: ...")
-		msgLines.append("From: ...")
-		msgLines.append("Call-ID: ...")
-		msgLines.append("CSeq: {} {}".format(cseqNumber, cseqMethod))
-		msgLines.append("Contact: ...[TO]...")
+		msgLines.append("Via: SIP/2.0/UDP {}:{}".format(g_sipconfig['ip'],
+			g_sipconfig['port']))
+		msgLines.append("To: " + headers['from'])
+		msgLines.append("From: {0} <sip:{0}@{1}>".format(g_sipconfig['user'],
+			g_sipconfig['ip']))
+		msgLines.append("Call-ID: " + headers['call-id'])
+		msgLines.append("CSeq: " + headers['cseq'])
+		msgLines.append("Contact: {0} <sip:{0}@{1}>".format(g_sipconfig['user'],
+			g_sipconfig['ip']))
 
 		self.send('\n'.join(msgLines))
 
