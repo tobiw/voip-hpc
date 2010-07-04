@@ -26,6 +26,8 @@ g_config = { 'modules': { 'python': { 'sip': {
 	'ip': '0.0.0.0',
 	'port': 5060,
 	'user': '100',
-	'useragent': 'softphone'
+	'useragent': 'softphone',
+	'secret': '45GTY9F3',
+	'use_authentication': False
 }}}}
 

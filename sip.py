@@ -28,6 +28,7 @@
 import logging
 import time
 import random
+import hashlib
 
 from connection import connection
 from sdp import parseSdpMessage, SdpParsingError
@@ -511,6 +512,10 @@ class Sip(connection):
 		if self.__checkForMissingHeaders(headers, ["accept", "content-type"]):
 			return
 
+		# Check authentication
+		if g_sipconfig['use_authentication']:
+			self.__challengeINVITE(headers)
+
 		# Header has to define Content-Type: application/sdp if body contains
 		# SDP message. Also, Accept has to be set to sdp so that we can send
 		# back a SDP response.
@@ -693,3 +698,32 @@ class Sip(connection):
 				headerMissing = True
 
 		return headerMissing
+
+	def __challengeINVITE(self, headers):
+		global g_sipconfig
+
+		nonce = hashlib.md5(g_sipconfig['secret'].encode('utf-8')).hexdigest()
+
+		if "authorization" not in headers:
+			# Send 401 Unauthorized response
+			msgLines = []
+			msgLines.append('SIP/2.0 ' + RESPONSE[UNAUTHORIZED])
+			msgLines.append("Via: SIP/2.0/UDP {}:{}".format(
+				g_sipconfig['ip'], g_sipconfig['port']))
+			msgLines.append("To: " + headers['from'])
+			msgLines.append("From: {0} <sip:{0}@{1}>".format(
+				g_sipconfig['user'], g_sipconfig['ip']))
+			msgLines.append("Call-ID: " + headers['call-id'])
+			msgLines.append("CSeq: " + headers['cseq'])
+			msgLines.append("Contact: {0} <sip:{0}@{1}>".format(
+				g_sipconfig['user'], g_sipconfig['ip']))
+			msgLines.append('WWW-Authenticate: Digest ' + \
+				'realm="{}@{}",'.format(g_sipconfig['user'],
+					g_sipconfig['ip']) + \
+				'nonce="{}",'.format(nonce) + \
+				'opaque="{}"'.format('1234567890'))
+
+			self.send('\n'.join(msgLines))
+		else:
+			# Check against config file
+			pass
