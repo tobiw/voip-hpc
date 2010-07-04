@@ -377,7 +377,7 @@ class SipSession(object):
 		# Send 180 Ringing to make honeypot appear more human-like
 		# TODO: Delay between 180 and 200
 		msgLines = []
-		msgLines.append("SIP/2.0 180 Ringing")
+		msgLines.append("SIP/2.0 " + RESPONSE[RINGING])
 		msgLines.append("Via: " + self.__sipVia)
 		msgLines.append("Max-Forwards: 70")
 		msgLines.append("To: " + self.__sipTo)
@@ -393,7 +393,7 @@ class SipSession(object):
 		localRtpPort = self.__rtpStream.getsockname()[1]
 		
 		msgLines = []
-		msgLines.append("SIP/2.0 200 OK")
+		msgLines.append("SIP/2.0 " + RESPONSE[OK])
 		msgLines.append("Via: " + self.__sipVia)
 		msgLines.append("Max-Forwards: 70")
 		msgLines.append("To: " + self.__sipTo)
@@ -501,6 +501,8 @@ class Sip(connection):
 
 	# SIP message type handlers
 	def sip_INVITE(self, requestLine, headers, body):
+		global g_sipconfig
+
 		# Print SIP header
 		logger.info("Received INVITE")
 		for k, v in headers.items():
@@ -592,7 +594,7 @@ class Sip(connection):
 		# Construct OPTIONS response
 		global g_sipconfig
 		msgLines = []
-		msgLines.append("SIP/2.0 200 OK")
+		msgLines.append("SIP/2.0 " + RESPONSE[OK])
 		msgLines.append("Via: SIP/2.0/UDP {}:{}".format(g_sipconfig['ip'],
 			g_sipconfig['port']))
 		msgLines.append("To: " + headers['from'])
@@ -654,7 +656,7 @@ class Sip(connection):
 		# Construct CANCEL response
 		global g_sipconfig
 		msgLines = []
-		msgLines.append("SIP/2.0 200 OK")
+		msgLines.append("SIP/2.0 " + RESPONSE[OK])
 		msgLines.append("Via: SIP/2.0/UDP {}:{}".format(g_sipconfig['ip'],
 			g_sipconfig['port']))
 		msgLines.append("To: " + headers['from'])
