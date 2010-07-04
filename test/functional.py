@@ -27,6 +27,7 @@ import sys
 import os
 from time import sleep
 from random import randint
+from glob import glob
 
 from nose.tools import assert_equals
 
@@ -39,7 +40,16 @@ else:
 # Manually import module from parent directory
 sip = __import__("sip")
 config = __import__("config")
-del sys.path[0]
+parentDir = sys.path.pop(0)
+testDir = parentDir + "/test/streams"
+
+# Change to test/streams path
+print("Changing directory to " + testDir)
+os.chdir(testDir)
+
+# Delete all stream files
+for oldStreamFile in glob("stream_*_*.rtpdump"):
+	os.remove(oldStreamFile)
 
 class VoipClient:
 	def __init__(self):
@@ -174,8 +184,7 @@ class ClientThread(threading.Thread):
 		assert_equals(data.split('\n')[0], "SIP/2.0 200 OK")
 
 		# Check if stream dump file has been created
-		# This will raise an exception if path doesn't exist
-		os.stat("stream_30123.rtpdump")
+		assert glob("stream_*_*.rtpdump")
 
 # Create Honeypot
 s = sip.Sip()
