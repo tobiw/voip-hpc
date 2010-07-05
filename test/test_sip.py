@@ -134,3 +134,44 @@ class TestSipMessageParser:
 		assert_equals(headers["via"][1], "SIP/2.0/UDP proxyB.domain")
 		assert_equals(headers["content-length"], "0")
 
+def test_challenge_response():
+	"""Test the challenge response mechanism (SIP authentication)"""
+	from sip import Sip
+	import hashlib
+
+	s = Sip()
+
+	def hash(s):
+		return hashlib.md5(s.encode('utf-8')).hexdigest()
+
+	def send(msg):
+		print(msg)
+
+	s.send = send
+
+	nonce = hash("deadbeef")
+	a1 = hash("{}:{}:{}".format(100, "100@localhost", 1234))
+	a2 = hash("INVITE:sip:100@localhost")
+	clientResponse = hash("{}:{}:{}".format(a1, nonce, a2))
+
+	headers = {
+		"to": "foo",
+		"from": "bar",
+		"via": "foo",
+		"call-id": "123456",
+		"cseq": "1 INVITE",
+		"authorization": """Digest username="100",
+			realm="100@localhost",
+			nonce="deadbeef",
+			uri="sip:100@localhost",
+			response="{response}"
+			""".format(response=clientResponse)
+	}
+
+	expected, response = s._Sip__challengeINVITE(headers)
+
+	# Did the VoIP server receive the same response that we calculated?
+	assert_equals(response, clientResponse)
+
+	# Is the servers expected response the one we send him?
+	assert_equals(expected, response)

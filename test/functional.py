@@ -25,6 +25,7 @@ import asyncore
 import socket
 import sys
 import os
+import hashlib
 from time import sleep
 from random import randint
 from glob import glob
@@ -51,6 +52,14 @@ os.chdir(testDir)
 for oldStreamFile in glob("stream_*_*.rtpdump"):
 	os.remove(oldStreamFile)
 
+def getHeader(data, header):
+	for line in data.split('\n'):
+		lineParts = line.split(':')
+		if lineParts[0] == header:
+			return lineParts[1].strip(' \t')
+
+	return ""
+
 class VoipClient:
 	def __init__(self):
 		self.__s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -66,7 +75,7 @@ class VoipClient:
 		data = data.decode('utf-8')
 		return data
 
-	def invite(self):
+	def invite(self, challengeResponse=None):
 		sdpMsg = """v=0
 			o=socketHelper 5566 7788 IN IP4 127.0.0.1
 			s=SDP Subject
@@ -87,6 +96,11 @@ class VoipClient:
 			Content-Length: {sdp}""".format(
 				callId=self.__callId,
 				sdp=len(sdpMsg))
+
+		if challengeResponse:
+			sipMsg += '\nAuthorization: Digest username="100", ' + \
+				'realm="100@localhost", uri="sip:100@localhost", ' + \
+				'response="{}"'.format(challengeResponse)
 
 		self.send(sipMsg + "\n\n" + sdpMsg)
 
@@ -129,7 +143,7 @@ class ClientThread(threading.Thread):
 			print("Functional test failed (assertion error)")
 			print(e)
 		except Exception as e:
-			print("Function test failed (unhandled error)")
+			print("Functional test failed (unhandled error)")
 			print(e)
 		else:
 			print("Functional test finished successfully")
@@ -157,6 +171,36 @@ class ClientThread(threading.Thread):
 
 		print("CLIENT: Sending INVITE")
 		c.invite()
+
+		# Expecting a 401 Unauthorized
+		data = c.recv()
+		assert_equals(data.split('\n')[0], "SIP/2.0 401 Unauthorized")
+		print("Received 401 Unauthorized")
+
+		# Get nonce from received data
+		nonce = ""
+		auth = getHeader(data, 'WWW-Authenticate').strip(' \n\r\t')
+		auth = auth.split(' ', 1)[1] # [0] has to be "Digest"
+		authLineParts = [x.strip(' \t\r\n') for x in auth.split(',')]
+		for x in authLineParts:
+			k, v = x.split('=', 1)
+			if k == "nonce":
+				nonce = v.strip(' \n\r\t"\'')
+		assert nonce
+
+		# Create challenge response
+		# The calculation of the expected response is taken from
+		# Sipvicious (c) Sandro Gaucci
+		def hash(s):
+			return hashlib.md5(s.encode('utf-8')).hexdigest()
+		
+		a1 = hash("100:100@localhost:F2DS13G5")
+		a2 = hash("INVITE:sip:100@localhost")
+		challengeResponse = hash("{}:{}:{}".format(a1, nonce, a2))
+
+		# Send INVITE again with authentication
+		print("CLIENT: Sending INVITE with challenge response")
+		c.invite(challengeResponse)
 
 		# Expecting a 180 Ringing first
 		data = c.recv()
