@@ -23,11 +23,11 @@
 # Configs
 # In dionaea: portrange = g_dionaea.config()['modules']['python']['ftp']['active-ports']
 g_config = { 'modules': { 'python': { 'sip': {
-	'ip': '0.0.0.0',
+	'ip': 'localhost',
 	'port': 5060,
 	'user': '100',
 	'useragent': 'softphone',
-	'secret': '45GTY9F3',
-	'use_authentication': False
+	'secret': 'F2DS13G5',
+	'use_authentication': True
 }}}}
 

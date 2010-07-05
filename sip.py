@@ -183,7 +183,9 @@ shortHeaders = {"call-id": "i",
 				"cseq": "cseq",
 				"accept": "accept",
 				"user-agent": "user-agent",
-				"max-forwards": "max-forwards"
+				"max-forwards": "max-forwards",
+				"www-authentication": "www-authentication",
+				"authorization": "authorization"
                 }
 
 longHeaders = {}
@@ -514,7 +516,8 @@ class Sip(connection):
 
 		# Check authentication
 		if g_sipconfig['use_authentication']:
-			self.__challengeINVITE(headers)
+			r = self.__challengeINVITE(headers)
+			if not r: return
 
 		# Header has to define Content-Type: application/sdp if body contains
 		# SDP message. Also, Accept has to be set to sdp so that we can send
@@ -702,7 +705,10 @@ class Sip(connection):
 	def __challengeINVITE(self, headers):
 		global g_sipconfig
 
-		nonce = hashlib.md5(g_sipconfig['secret'].encode('utf-8')).hexdigest()
+		def hash(s):
+			return hashlib.md5(s.encode('utf-8')).hexdigest()
+
+		nonce = hash("{}".format(time.time()))
 
 		if "authorization" not in headers:
 			# Send 401 Unauthorized response
@@ -726,4 +732,31 @@ class Sip(connection):
 			self.send('\n'.join(msgLines))
 		else:
 			# Check against config file
-			pass
+			authMethod, authLine = headers['authorization'].split(' ', 1)
+			if authMethod != 'Digest':
+				logger.error("Authorization is not Digest")
+				return
+
+			# Get Authorization header parts (a="a", b="b", c="c", ...) and put
+			# them in a dictionary for easy lookup
+			authLineParts = [x.strip(' \t\r\n') for x in authLine.split(',')]
+			authLineDict = {}
+			for x in authLineParts:
+				parts = x.split('=')
+				authLineDict[parts[0]] = parts[1].strip(' \n\r\t"\'')
+
+			# The calculation of the expected response is taken from
+			# Sipvicious (c) Sandro Gaucci
+			# TODO: compare config values to values in Authorization header
+			realm = "{}@{}".format(g_sipconfig['user'], g_sipconfig['ip'])
+			uri = "sip:" + realm
+			a1 = hash("{}:{}:{}".format(
+				g_sipconfig['user'], realm, g_sipconfig['secret']))
+			a2 = hash("INVITE:{}".format(uri))
+			expected = hash("{}:{}:{}".format(a1, nonce, a2))
+
+			if expected != authLineDict['response']:
+				logger.error("Authorization failed")
+				return
+
+			return expected, authLineDict['response']
