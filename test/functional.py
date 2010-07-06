@@ -113,25 +113,37 @@ class VoipClient:
 			CSeq: 1 OPTIONS
 			Contact: socketHelper""")
 
-	def ack(self):
-		self.send("""ACK foo SIP/2.0
+	def ack(self, challengeResponse):
+		sipMsg = """ACK foo SIP/2.0
 			Via: SIP/2.0/UDP 127.0.0.1
 			From: socketHelper
 			To: foo bar
 			Call-ID: {callId}
 			CSeq: 1 ACK
-			Contact: socketHelper""".format(
-				callId=self.__callId))
+			Contact: socketHelper""".format(callId=self.__callId)
 
-	def bye(self):
-		self.send("""BYE foo SIP/2.0
+		if challengeResponse:
+			sipMsg += '\nAuthorization: Digest username="100", ' + \
+				'realm="100@localhost", uri="sip:100@localhost", ' + \
+				'response="{}"'.format(challengeResponse)
+
+		self.send(sipMsg)
+
+	def bye(self, challengeResponse):
+		sipMsg = """BYE foo SIP/2.0
 			Via: SIP/2.0/UDP 127.0.0.1
 			From: sockerHelper
 			To: foo bar
 			Call-ID: {callId}
 			CSeq: 1 BYE
-			Contact: socketHelper""".format(
-				callId=self.__callId))
+			Contact: socketHelper""".format(callId=self.__callId)
+
+		if challengeResponse:
+			sipMsg += '\nAuthorization: Digest username="100", ' + \
+				'realm="100@localhost", uri="sip:100@localhost", ' + \
+				'response="{}"'.format(challengeResponse)
+
+		self.send(sipMsg)
 
 	def getCallId(self): return self.__callId
 
@@ -215,13 +227,14 @@ class ClientThread(threading.Thread):
 		assert_equals(data[5], "Call-ID: {}".format(c.getCallId()))
 
 		print("CLIENT: Sending ACK")
-		c.ack()
+		c.ack(challengeResponse)
 
 		# Active session goes here ...
 		sleep(3)
 
+		# Active session ends
 		print("CLIENT: Sending BYE")
-		c.bye()
+		c.bye(challengeResponse)
 
 		# Expecting a 200 OK
 		data = c.recv()
