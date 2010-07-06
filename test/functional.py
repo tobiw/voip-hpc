@@ -192,7 +192,8 @@ class ClientThread(threading.Thread):
 		# Get nonce from received data
 		nonce = ""
 		auth = getHeader(data, 'WWW-Authenticate').strip(' \n\r\t')
-		auth = auth.split(' ', 1)[1] # [0] has to be "Digest"
+		assert_equals(auth.split(' ', 1)[0], 'Digest')
+		auth = auth.split(' ', 1)[1]
 		authLineParts = [x.strip(' \t\r\n') for x in auth.split(',')]
 		for x in authLineParts:
 			k, v = x.split('=', 1)
@@ -226,11 +227,30 @@ class ClientThread(threading.Thread):
 				config.g_config['modules']['python']['sip']['user']))
 		assert_equals(data[5], "Call-ID: {}".format(c.getCallId()))
 
+		print(data)
+
+		# Get SDP port of server
+		sdpMedia = None
+		for d in data:
+			if d[:2] == "m=":
+				sdpMedia = d[2:]
+				break
+		assert sdpMedia
+		assert_equals(sdpMedia.split(' ')[0], "audio")
+		rtpPort = int(sdpMedia.split(' ')[1])
+		print("SDP port: {}".format(rtpPort))
+
 		print("CLIENT: Sending ACK")
 		c.ack(challengeResponse)
 
 		# Active session goes here ...
-		sleep(3)
+		sleep(2)
+
+		sRtp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		sRtp.bind(('localhost', 30123))
+		sRtp.sendto(b"Hello World", ('localhost', rtpPort))
+
+		sleep(2)
 
 		# Active session ends
 		print("CLIENT: Sending BYE")
