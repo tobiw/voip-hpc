@@ -286,6 +286,10 @@ class RtpUdpStream(connection):
 	def __init__(self, address, port):
 		connection.__init__(self, 'udp')
 
+		# Bind to free random port for incoming RTP traffic
+		self.bind(('',0))
+		self.__localport = self.getsockname()[1]
+
 		# The address and port of the remote host
 		self.__address = address
 		self.__port = port
@@ -306,7 +310,8 @@ class RtpUdpStream(connection):
 			logger.error("Could not open stream dump file: {}".format(e))
 			self.__streamDump = None
 
-		logger.debug("Created RTP channel on port {}".format(port))
+		logger.debug("Created RTP channel :{} <-> :{}".format(
+			self.__localport, self.__port))
 
 	def writable(self):
 		return len(self.__sendBuffer) > 0
@@ -317,6 +322,7 @@ class RtpUdpStream(connection):
 	def handle_read(self):
 		# Don't have to get address and port because they're already known since
 		# __init__
+		logger.debug("Incoming RTP data ...")
 		data, _ = self.recvfrom(1024)
 
 		# Write data to disk
@@ -393,6 +399,7 @@ class SipSession(object):
 
 		# Send our RTP port to the remote host as a 200 OK response to the
 		# remote host's INVITE request
+		logger.debug("getsockname: {}".format(self.__rtpStream.getsockname()))
 		localRtpPort = self.__rtpStream.getsockname()[1]
 		
 		msgLines = []
@@ -418,10 +425,6 @@ class SipSession(object):
 				"Waiting for ACK after INVITE -> got ACK -> active session")
 			logger.info("Connection accepted (session {})".format(
 				self.__inviteHeaders['call-id']))
-
-			# Create RTP stream channel
-			self.__rtpStream = RtpUdpStream(self.__remoteAddress,
-				self.__remoteRtpPort)
 
 			# Set current state to active (ready for multimedia stream)
 			self.__state = SipSession.ACTIVE_SESSION

@@ -54,6 +54,8 @@ class connection(asyncore.dispatcher):
 	def handle_established(self):
 		"""Callback for a newly established connection (client or server)"""
 		logger.info('Session established')
+		logger.debug('Session socket: {}'.format(
+			self.getsockname()))
 
 	def handle_read(self):
 		"""Callback for incoming data (dionaea: handle_io_in)"""
