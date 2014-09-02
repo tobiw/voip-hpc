@@ -1,3 +1,5 @@
-A SIP (VoIP protocal) plugin for the honeypot dionea [1]. Written during the Google Summer of Code 2010.
+A SIP (VoIP protocol) honeypot.
+
+Written during the Google Summer of Code 2010 and extended into a plugin for the honeypot dionaea [1].
 
 [1] http://dionaea.carnivore.it
